@@ -130,6 +130,16 @@
     return btoa(bin);
   }
 
+  /* GitHub explains itself in the body, and that explanation is nearly always
+     more use than the number in front of it. */
+  async function why(res, fallback) {
+    try {
+      var body = await res.json();
+      if (body && body.message) return body.message;
+    } catch (e) { /* not JSON */ }
+    return fallback;
+  }
+
   async function commitState(token) {
     var repo = repoFromUrl();
     if (!repo) throw new Error('Not a GitHub Pages URL');
@@ -146,6 +156,7 @@
     var got = await fetch(api + '?ref=HEAD', { headers: head, cache: 'no-store' });
     if (got.status === 401) throw new Error('Token refused');
     if (got.status === 404) throw new Error('No access to ' + repo);
+    if (!got.ok && got.status !== 404) throw new Error(await why(got, 'Could not read the repo'));
     if (got.ok) sha = (await got.json()).sha;
 
     var put = await fetch(api, {
@@ -158,7 +169,14 @@
       }),
     });
     if (put.status === 409) throw new Error('Someone else published first');
-    if (!put.ok) throw new Error('GitHub said ' + put.status);
+    if (put.status === 403) {
+      /* A token that authenticates but may not write. Nearly always the
+         token's own doing: "Public repositories (read-only)" under repository
+         access, or Contents left at read. Said plainly, because "GitHub said
+         403" sends you looking in the wrong place. */
+      throw new Error('Token cannot write here \u2014 set Contents: read and write');
+    }
+    if (!put.ok) throw new Error(await why(put, 'GitHub said ' + put.status));
     baseline = JSON.stringify(docs);
     dirty = false;
   }
@@ -174,6 +192,7 @@
       'border:1px solid rgba(232,236,246,.14)', 'background:rgba(10,14,26,.82)',
       'backdrop-filter:blur(14px)', 'color:#8b96ad',
       'font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace',
+      'max-width:min(360px, calc(100vw - 28px))',
     ].join(';');
 
     var say = document.createElement('span');
