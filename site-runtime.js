@@ -209,6 +209,17 @@
     ].join(';');
     bar.appendChild(go);
 
+    /* A refused token can be forgotten on its own, being certainly wrong. One
+       that authenticates but may not write cannot: the answer might be to
+       widen that token, or a second token might have been made while this
+       browser still holds the first -- and that second case has no way out at
+       all without somewhere to say "a different one". */
+    var swap = document.createElement('button');
+    swap.textContent = 'New token';
+    swap.hidden = true;
+    swap.style.cssText = go.style.cssText;
+    bar.appendChild(swap);
+
     function note(text, bad) {
       say.textContent = text;
       say.style.color = bad ? '#ff9a2e' : '#8b96ad';
@@ -252,6 +263,17 @@
       });
     }
 
+    swap.addEventListener('click', async function () {
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* private window */ }
+      note('Paste a token with Contents write');
+      var t = await askToken();
+      if (!t) { note('Cancelled \u2014 no token stored'); return; }
+      try { localStorage.setItem(TOKEN_KEY, t); } catch (e) { /* private window */ }
+      swap.hidden = true;
+      note('Token stored \u2014 press Publish');
+      go.disabled = !dirty;
+    });
+
     go.addEventListener('click', async function () {
       var token = localStorage.getItem(TOKEN_KEY);
       if (!token) {
@@ -267,6 +289,7 @@
         await commitState(token);
         delete go.dataset.busy;
         go.disabled = true;
+        swap.hidden = true;
         note('Published \u2014 live in about a minute');
       } catch (err) {
         delete go.dataset.busy;
@@ -275,6 +298,8 @@
         // a refused token is worth forgetting, or it fails the same way forever
         if (/refused|No access/.test(String(err.message))) {
           try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+        } else {
+          swap.hidden = false;
         }
       }
     });
