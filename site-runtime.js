@@ -22,6 +22,16 @@
 
   var docs = {};
 
+  /* ?edit brings the editor's gear back. Nothing it does can be saved here --
+     a static host has nowhere to write -- so this is for looking, not
+     authoring: checking how a setting sits at a real width on a real device,
+     where the answer is not quite what the desk says. Authoring happens in
+     local.html. It is set before the page draws, not a secret, and guards
+     nothing: it only keeps the gear out of a visitor's way. */
+  if (/[?&]edit\b/.test(location.search)) {
+    document.documentElement.setAttribute('data-edit', '');
+  }
+
   /* The page holds its first frame until it knows what it is drawing. Here the
      pictures are ordinary URLs the browser fetches as it draws them, so there
      is nothing to wait for and saying so is what lets the river start. */

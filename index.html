@@ -7,13 +7,18 @@
   html, body { height: 100%; margin: 0; }
   img { max-width: 100%; }
   [hidden] { display: none !important; }
-  /* the editor's own chrome. Nothing a visitor can save, so nothing to open. */
-  .ui-toggle, .panel { display: none !important; }
+  /* The editor's own chrome, kept out of a visitor's way -- but reachable by
+     adding ?edit to the URL, which is how you check a setting at a real width
+     on a real phone. Written as "hide unless editing" rather than "hide, then
+     unhide", so that in edit mode no rule of ours applies at all and the
+     page's own [hidden] still decides whether the panel is open. */
+  html:not([data-edit]) .ui-toggle,
+  html:not([data-edit]) .panel { display: none !important; }
 </style>
 <script src="site-runtime.js"></script>
 </head>
 <body>
-<script>window.__build = "d1d72430";</script>
+<script>window.__build = "d26af099";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
