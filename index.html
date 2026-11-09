@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=b5c4228e"></script>
+<script src="site-runtime.js?v=0f35cf1d"></script>
 </head>
 <body>
-<script>window.__build = "b5c4228e";</script>
+<script>window.__build = "0f35cf1d";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -862,8 +862,8 @@
     box-shadow: 0 50px 140px rgba(0, 0, 0, .6);
     opacity: 0;
     pointer-events: none;
-    transition: transform .72s cubic-bezier(.19, 1, .22, 1),
-                opacity .34s ease;
+    transition: transform .48s cubic-bezier(.19, 1, .22, 1),
+                opacity .3s ease;
   }
   .sheet.in { opacity: 1; pointer-events: auto; }
 
@@ -895,8 +895,8 @@
      at the very end so the card is there to take over. */
   .zoomer.going {
     opacity: 0;
-    transition: transform .72s cubic-bezier(.19, 1, .22, 1),
-                opacity .14s ease .58s;
+    transition: transform .48s cubic-bezier(.19, 1, .22, 1),
+                opacity .13s ease .35s;
   }
 
   /* The layer dissolves where it stands, a beat ahead of the picture, so the
@@ -905,8 +905,8 @@
      shrinks -- the same third of a second, at the other end of the move. */
   .sheet.going {
     opacity: 0;
-    transition: transform .72s cubic-bezier(.19, 1, .22, 1),
-                opacity .34s ease .38s;
+    transition: transform .48s cubic-bezier(.19, 1, .22, 1),
+                opacity .3s ease .18s;
   }
   /* And the words go first, downward, so the layer is already empty by the
      time it folds. */
@@ -947,7 +947,7 @@
     color: #e8ecf6;
     opacity: 0;
     transform: translateY(10px);
-    transition: opacity .3s ease .26s, transform .45s cubic-bezier(.19, 1, .22, 1) .26s;
+    transition: opacity .28s ease .2s, transform .4s cubic-bezier(.19, 1, .22, 1) .2s;
   }
   .sheet.in .sheet-text { opacity: 1; transform: none; }
   /* Going out is quicker than coming in: nobody wants to wait to leave. */
@@ -5621,7 +5621,12 @@ function CardRiver() {
     const q = r.to >= r.from ? p : 1 - p;          // backwards on the way home
     const ease = (x) => x * x * (3 - 2 * x);
     const span = (x, a, b) => ease(Math.max(0, Math.min(1, (x - a) / (b - a))));
-    return { out: span(q, 0, 0.42), turn: span(q, 0.3, 1) };
+    /* They overlap by much more than they used to. Two beats that barely
+       touch are two moves: on the way back the card finished arriving, then
+       turned where it stood, then slid in -- a stop you could feel at
+       thumbnail size. Overlapped, it is one move that still reads as out,
+       then round. */
+    return { out: span(q, 0, 0.66), turn: span(q, 0.14, 1) };
   };
   const liftAmt = (i) => {
     const l = liftPhase(i);
@@ -5745,7 +5750,11 @@ function CardRiver() {
         setPhase(null);
         setOpen(null);
       }, DROP_MS);
-    }, 720);
+      /* The travel is declared at 480ms but its curve is front-loaded and
+         it is there in about 280. The card starts back then, not when the
+         transition formally ends, or the picture sits at thumbnail size with
+         nothing happening -- which is the stop you could feel. */
+    }, 290);
     if (push && location.hash) {
       history.pushState(null, '', location.pathname + location.search);
     }
