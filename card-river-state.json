@@ -928,6 +928,13 @@
         "kind": "image",
         "fh": false,
         "fv": false
+      },
+      {
+        "id": "mw8isyor-github.jpg",
+        "name": "github.jpg",
+        "kind": "image",
+        "fh": false,
+        "fv": false
       }
     ]
   },
