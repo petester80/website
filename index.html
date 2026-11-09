@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=362aadcb"></script>
+<script src="site-runtime.js?v=4ceefe4a"></script>
 </head>
 <body>
-<script>window.__build = "362aadcb";</script>
+<script>window.__build = "4ceefe4a";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5192,6 +5192,13 @@ function CardRiver() {
      went -- and anything the viewer does next takes the wheel back. */
   const goTo = (card) => { glide.current = frontAt(card, n); };
 
+  /* How a wheel notch is divided between now and the glide out of it. The
+     momentum decays by 0.0015 a second, so a velocity handed to it travels
+     1/ln(1/0.0015), about 0.154 of itself -- and the 6.5 undoes exactly that,
+     so the split changes when the movement arrives and never how far it goes. */
+  const WHEEL_NOW = 0.45;
+  const WHEEL_CARRY = 6.5;
+
   const onPointerDown = (e) => {
     if (e.target.closest('.panel, .ui-toggle, .rmenu')) return;
     /* the gateway answers a press with a ring; the drifting field has no such
@@ -5254,7 +5261,17 @@ function CardRiver() {
       const along = Math.abs(e.deltaX) > 0.5
         ? e.deltaX * ax.x + e.deltaY * ax.y
         : e.deltaY;
-      progress.current += along / (dims.current.slot * 2.4 || 1);
+      const d = along / (dims.current.slot * 2.4 || 1);
+      /* Part of a notch lands now and the rest is handed to the momentum a
+         drag already uses, because a wheel arrives in lumps at uneven times:
+         moving the river the whole way on each one made the step between
+         frames swing from nothing to half a card, and stopping scrolling
+         stopped the river dead, where letting go of a drag lets it run on.
+         A notch still carries the river exactly as far as it did -- 0.45 of
+         it at once, and 0.55 spread over the decay, which integrates to the
+         same distance. */
+      progress.current += d * WHEEL_NOW;
+      drag.current.vel += d * (1 - WHEEL_NOW) * WHEEL_CARRY;
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     const onKey = (e) => {
