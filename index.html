@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=0e3a52e4"></script>
+<script src="site-runtime.js?v=dda41542"></script>
 </head>
 <body>
-<script>window.__build = "0e3a52e4";</script>
+<script>window.__build = "dda41542";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5393,9 +5393,19 @@ function CardRiver() {
     if (!ampY) return;
     const prog = progress.current;
 
+    /* How far the one being taken has got, so the rest can stand back. A card
+       growing among its neighbours at full strength reads as a card swelling;
+       the same card with the ring dimmed behind it reads as a card out of
+       it. */
+    const liftI = openRun.current.i;
+    const ringBack = liftI >= 0 ? liftAmt(liftI) : 0;
+
     for (let i = 0; i < n; i++) {
       const card = cardRefs.current[i];
       if (!card) continue;
+      card.style.opacity = ringBack > 0 && i !== liftI
+        ? (1 - 0.72 * ringBack).toFixed(3)
+        : '';
 
       // where this panel sits on the drum; 0 is the near point at mid-frame
       let phi = (-TAU * (i + prog)) / n % TAU;
@@ -5415,7 +5425,8 @@ function CardRiver() {
       /* Out of the ring, round to face the front, and into the middle. The
          turn takes the short way to the angle a card has when it sits at the
          near point, which is the angle at which this rig shows a card flat. */
-      const lift = liftAmt(i);
+      const beat = liftPhase(i);
+      const lift = Math.max(beat.out, beat.turn);
       let ly = y;
       let lz = z + 46 * hoverAmt.current[i];
       let lth = theta;
@@ -5428,10 +5439,12 @@ function CardRiver() {
            Nearest half turn, so the longest it ever turns is a quarter, and
            the flip already rights the artwork on a back face. */
         const face = Math.round(theta / 180) * 180;
-        ly = y * (1 - lift);
-        lz = lz * (1 - lift) + ampZ * LIFT_PULL * lift;
-        lth = theta + (face - theta) * lift;
-        lsc = 1 + (LIFT_SCALE - 1) * lift;
+        /* Out of the ring on the first beat, keeping its own angle, so a gap
+           opens where it was. Round and into the middle on the second. */
+        ly = y * (1 - beat.turn);
+        lz = lz * (1 - beat.out) + ampZ * LIFT_PULL * beat.out;
+        lth = theta + (face - theta) * beat.turn;
+        lsc = 1 + (LIFT_SCALE - 1) * beat.turn;
       }
 
       card.style.transform =
@@ -5583,12 +5596,23 @@ function CardRiver() {
   const openRun = useRef({ i: -1, from: 0, to: 0, t0: 0, dur: LIFT_MS });
   const liftTimer = useRef(null);
 
-  const liftAmt = (i) => {
+  /* Two beats, not one. Taking a card off a ring is a card coming out and
+     then being turned over, and doing both at once is neither: it reads as
+     the card swelling where it stands. `out` is the first half and carries it
+     clear of its neighbours; `turn` is the second and brings it round and to
+     the middle. */
+  const liftPhase = (i) => {
     const r = openRun.current;
-    if (r.i !== i) return 0;
+    if (r.i !== i) return { out: 0, turn: 0 };
     const p = Math.min(1, (performance.now() - r.t0) / r.dur);
-    const e = p * p * (3 - 2 * p);
-    return r.from + (r.to - r.from) * e;
+    const q = r.to >= r.from ? p : 1 - p;          // backwards on the way home
+    const ease = (x) => x * x * (3 - 2 * x);
+    const span = (x, a, b) => ease(Math.max(0, Math.min(1, (x - a) / (b - a))));
+    return { out: span(q, 0, 0.42), turn: span(q, 0.3, 1) };
+  };
+  const liftAmt = (i) => {
+    const l = liftPhase(i);
+    return Math.max(l.out, l.turn);
   };
 
   const hoverRef = useRef(-1);
