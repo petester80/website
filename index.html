@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=fa6420ef"></script>
+<script src="site-runtime.js?v=b7ed3650"></script>
 </head>
 <body>
-<script>window.__build = "fa6420ef";</script>
+<script>window.__build = "b7ed3650";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -883,9 +883,15 @@
     overflow: hidden;
     pointer-events: none;
     box-shadow: 0 30px 90px rgba(0, 0, 0, .5);
-    transition: transform .72s cubic-bezier(.19, 1, .22, 1);
+    transition: transform .72s cubic-bezier(.19, 1, .22, 1),
+                opacity .24s ease;
     will-change: transform;
   }
+  /* Going home, it stays solid for most of the way and then gives out just as
+     it arrives, so the card underneath takes over rather than the picture
+     blinking out of a gap. The river is already fading back in by then. */
+  .zoomer.going { opacity: 0; transition: transform .72s cubic-bezier(.19, 1, .22, 1),
+                                          opacity .2s ease .5s; }
   .zoomer video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   /* Anywhere that is not the layer is a way out of it. */
@@ -979,7 +985,18 @@
     cursor: pointer;
   }
   .sheet-x:hover { border-color: rgba(232, 236, 246, .5); }
+  /* Pinned to the layer rather than sitting at the end of the words. It was
+     the last thing in a scrolling column, so on a short window it was below
+     the fold -- a way out you have to go looking for is not one. */
   .sheet-back {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 14px;
+    margin: 0 auto;
+    width: max-content;
+    z-index: 3;
+    pointer-events: auto;
     appearance: none;
     border: 1px solid rgba(232, 236, 246, .22);
     background: transparent;
@@ -990,9 +1007,9 @@
     letter-spacing: .12em;
     text-transform: uppercase;
     cursor: pointer;
-    margin-top: 18px;
   }
   .sheet-back:hover { border-color: rgba(232, 236, 246, .5); }
+  .sheet.in .sheet-x, .sheet.in .sheet-back { pointer-events: auto; }
 
   /* The river stands down rather than disappearing: the field goes on running
      behind all of this, because it is the one thing here that never stops. */
@@ -5595,12 +5612,14 @@ function CardRiver() {
      going: a transition needs two frames to be a transition. */
   useEffect(() => {
     if (phase !== 'from') return undefined;
-    const r = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setPhase((ph) => (ph === 'from' ? 'to' : ph));
-      });
-    });
-    return () => cancelAnimationFrame(r);
+    const go = () => setPhase((ph) => (ph === 'from' ? 'to' : ph));
+    /* Two frames, because a transition needs a frame to start from -- but a
+       timer behind it, because requestAnimationFrame does not run in a tab
+       nobody is looking at. Without it a page opened in a background tab is
+       still shut when you get to it. */
+    const r = requestAnimationFrame(() => requestAnimationFrame(go));
+    const t = setTimeout(go, 60);
+    return () => { cancelAnimationFrame(r); clearTimeout(t); };
   }, [phase]);
 
   /* The address is the page. Typing one in, sharing one, or pressing Back all
@@ -5647,8 +5666,17 @@ function CardRiver() {
     if (i >= 0) openCard(i, work);
   };
 
+  /* What belongs to the stage, and what only happens to be drawn over it.
+     The opened layer goes out through a portal, but a portal still bubbles
+     its events up the React tree -- so a press on the close button arrived
+     here too, and this took the pointer with setPointerCapture. The press
+     landed on the button, the release landed on the stage, and the click in
+     between was retargeted to the one ancestor they shared: no close button
+     anywhere was ever clickable, nor the veil behind it. */
+  const OVER_STAGE = '.panel, .ui-toggle, .rmenu, .sheet, .sheet-veil, .zoomer, .hovercap';
+
   const onPointerDown = (e) => {
-    if (e.target.closest('.panel, .ui-toggle, .rmenu')) return;
+    if (e.target.closest(OVER_STAGE)) return;
     /* the gateway answers a press with a ring; the drifting field has no such
        call, so this asks rather than assumes */
     const eng = flowRef.current;
@@ -5718,7 +5746,7 @@ function CardRiver() {
     endDrag();
     if (openRef.current) return;
     if (moved > 7 || held > 500) return;
-    if (e.target && e.target.closest && e.target.closest('.panel, .ui-toggle, .rmenu')) return;
+    if (e.target && e.target.closest && e.target.closest(OVER_STAGE)) return;
     const i = cardUnder(e.clientX, e.clientY);
     if (i < 0) return;
     const item = deck[i];
@@ -6654,7 +6682,8 @@ function CardRiver() {
   return (
     <div
       className={`world${dropping ? ' dropping' : ''}${intro ? ' intro' : ''}`
-                 + (revealed ? '' : ' settling') + (open ? ' opened' : '')}
+                 + (revealed ? '' : ' settling')
+                 + (open && phase !== 'home' ? ' opened' : '')}
       style={{
         '--d-back':  `${scene.steps.back.delay}s`,
         '--d-pics':  `${scene.steps.pics.delay}s`,
@@ -6762,13 +6791,13 @@ function CardRiver() {
                      top: `${zoom.to.pad}px`,
                      width: `${(zoom.sheet.w - (zoom.to.x - zoom.sheet.x) - zoom.to.w
                                 - zoom.to.pad * 2).toFixed(0)}px`,
-                     maxHeight: `${(zoom.sheet.h - zoom.to.pad * 2).toFixed(0)}px`,
+                     maxHeight: `${(zoom.sheet.h - zoom.to.pad * 2 - 56).toFixed(0)}px`,
                    } : {
                      left: `${zoom.to.pad}px`,
                      top: `${(zoom.to.y - zoom.sheet.y + zoom.to.h + zoom.to.pad).toFixed(0)}px`,
                      width: `${(zoom.sheet.w - zoom.to.pad * 2).toFixed(0)}px`,
                      maxHeight: `${(zoom.sheet.h - (zoom.to.y - zoom.sheet.y)
-                                    - zoom.to.h - zoom.to.pad * 2).toFixed(0)}px`,
+                                    - zoom.to.h - zoom.to.pad * 2 - 56).toFixed(0)}px`,
                    }}>
                 <p className="sheet-kind">{open.kind}</p>
                 <h2 className="sheet-title">{open.title}</h2>
@@ -6785,15 +6814,15 @@ function CardRiver() {
                       <button key={w.slug} onClick={() => swapTo(w)}>{w.title}</button>
                     ))}
                 </div>
-                <button className="sheet-back" onClick={() => closeCard(true)}>
-                  Back to the river
-                </button>
               </div>
+              <button className="sheet-back" onClick={() => closeCard(true)}>
+                Back to the river
+              </button>
             </div>
           )}
 
           {zoom && (
-            <div className="zoomer"
+            <div className={`zoomer${phase === 'home' ? ' going' : ''}`}
                  style={{
                    width: `${zoom.to.w}px`,
                    height: `${zoom.to.h}px`,
