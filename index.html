@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=4ceefe4a"></script>
+<script src="site-runtime.js?v=861ff7d2"></script>
 </head>
 <body>
-<script>window.__build = "4ceefe4a";</script>
+<script>window.__build = "861ff7d2";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -843,6 +843,164 @@
   @media (prefers-reduced-motion: reduce) {
     .ui-toggle, .reset { transition: none; }
   }
+
+  /* ---------- a card opened ---------- */
+
+  /* The card that was clicked, lifted out of the rig and flown to the page.
+     A copy rather than the card itself: the card lives inside a rolled,
+     perspective-projected world, and nothing good comes of trying to animate
+     one out of that. This starts life exactly on top of it and takes over. */
+  .zoomer {
+    position: fixed;
+    z-index: 260;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 14px;
+    overflow: hidden;
+    pointer-events: none;
+    box-shadow: 0 40px 120px rgba(0, 0, 0, .55);
+    transition: transform .78s cubic-bezier(.16, 1, .3, 1),
+                opacity .4s ease;
+    will-change: transform;
+  }
+  .zoomer video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* The river gets out of the way rather than disappearing: the field goes on
+     running behind the page, because it is the one thing on this site that is
+     always moving. */
+  .world.opened .card,
+  .world.opened .head,
+  .world.opened .rmenu { opacity: 0; transition: opacity .45s ease; }
+  .world.opened .card { pointer-events: none; }
+
+  .page {
+    position: fixed;
+    inset: 0;
+    z-index: 270;
+    display: grid;
+    align-content: center;
+    padding: clamp(18px, 5vw, 72px);
+    color: #e8ecf6;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .5s ease .28s;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .page.in { opacity: 1; pointer-events: auto; }
+
+  /* The words sit to the right of the picture on a wide screen and under it
+     on a narrow one, which is also the order they are read in. */
+  .page-wrap {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    display: grid;
+    gap: clamp(20px, 4vw, 56px);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 900px) {
+    .page-wrap { grid-template-columns: 46% 1fr; align-items: center; }
+    .page-hole { grid-column: 1; }
+    .page-text { grid-column: 2; }
+  }
+  /* The picture is flown into this space, so the space is held open for it
+     and holds nothing itself. */
+  .page-hole { min-height: 1px; }
+
+  .page-kind {
+    font: 500 11px/1 'DM Mono', ui-monospace, Menlo, monospace;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #8b96ad;
+    margin: 0 0 14px;
+  }
+  .page-title {
+    font: 700 clamp(30px, 5.2vw, 62px)/1.02 'Sora', system-ui, sans-serif;
+    letter-spacing: -.02em;
+    margin: 0 0 18px;
+  }
+  .page-blurb {
+    font: 400 clamp(15px, 1.5vw, 19px)/1.55 'Sora', system-ui, sans-serif;
+    color: #c3ccdd;
+    margin: 0 0 28px;
+    max-width: 46ch;
+  }
+  .page-back {
+    appearance: none;
+    border: 1px solid rgba(232, 236, 246, .22);
+    background: transparent;
+    color: #e8ecf6;
+    border-radius: 999px;
+    padding: 9px 18px;
+    font: 500 12px/1 'DM Mono', ui-monospace, Menlo, monospace;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .page-back:hover { border-color: rgba(232, 236, 246, .5); }
+
+  /* Behind the page, so the river reads as a backdrop rather than competing
+     with the words. The field still moves through it. */
+  .page-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    background: radial-gradient(120% 90% at 50% 45%,
+                rgba(8, 11, 20, .55) 0%, rgba(8, 11, 20, .9) 70%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .55s ease;
+  }
+  .page-veil.in { opacity: 1; }
+
+  /* Something to tell you a card can be opened at all. */
+  .world.canopen { cursor: pointer; }
+
+  /* Narrow: the picture goes above the words rather than beside them, so the
+     page is read downward the way everything else on a phone is. */
+  @media (max-width: 899px) {
+    .page { align-content: start; padding-top: 42vh; }
+    .page-hole { display: none; }
+  }
+
+  .hovercap {
+    position: fixed;
+    left: clamp(14px, 3vw, 38px);
+    bottom: clamp(14px, 3vw, 38px);
+    z-index: 240;
+    display: grid;
+    gap: 7px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .28s ease, transform .28s cubic-bezier(.16, 1, .3, 1);
+  }
+  .hovercap.in { opacity: 1; transform: translateY(0); }
+  .hovercap-kind {
+    font: 500 10px/1 'DM Mono', ui-monospace, Menlo, monospace;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: #8b96ad;
+  }
+  .hovercap-title {
+    font: 600 clamp(19px, 2.6vw, 30px)/1.1 'Sora', system-ui, sans-serif;
+    letter-spacing: -.015em;
+    color: #e8ecf6;
+    max-width: 14ch;
+  }
+  .hovercap-go {
+    font: 500 10px/1 'DM Mono', ui-monospace, Menlo, monospace;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: #8b96ad;
+    border-top: 1px solid rgba(232, 236, 246, .18);
+    padding-top: 7px;
+    justify-self: start;
+  }
 </style>
 
 <div id="root"></div>
@@ -1484,6 +1642,89 @@ const BG_HEX = ['color', 'calm', 'mid', 'hot'];
    engines themselves are reached. */
 const FLOW_KEYS = ['field', 'gateway', 'nebula',
   'grid', 'dots', 'web', 'waves', 'mosaic', 'mesh'];
+
+/* ---------- what a card is, once you click it -------------------------
+
+   A card is a piece of work, and this is what it says about itself. Keyed by
+   the readable part of a picture's filename rather than by its id, because an
+   id is a moment in time and changes every time a picture is replaced, while
+   "CanonMirrorless" is what the thing has always been called.
+
+   The words here are mine, written from the titles and sections of the old
+   site. Replace them with your own: they are a scaffold, not a description of
+   work I have seen. */
+const WORKS = [
+  { match: 'DJIMavic', slug: 'dji-mavic-2', kind: 'HTML5 Ads',
+    title: 'DJI Mavic 2 Zoom and Pro',
+    blurb: 'An interactive responsive ad for the Mavic 2 pair, built to carry '
+      + 'the difference between the Zoom and the Pro without a word of '
+      + 'explanation.' },
+  { match: 'CanonMirrorless', slug: 'canon-eos-r', kind: 'HTML5 Ads',
+    title: 'Canon EOS R Mirrorless System',
+    blurb: 'A responsive ad for the EOS R system, sized to sit in a banner and '
+      + 'still read as a camera worth looking at.' },
+  { match: 'Ipad', slug: 'ipad-pro', kind: 'HTML5 Ads',
+    title: 'Apple iPad Pro, Pseudo 3D',
+    blurb: 'Depth without 3D: layered art moved against itself so a flat banner '
+      + 'turns in the hand.' },
+  { match: 'AppleStuff', slug: 'apple-sweet-deals', kind: 'HTML5 Ads',
+    title: 'Apple Sweet Deals',
+    blurb: 'A physics-based responsive ad, where the products fall, settle and '
+      + 'answer the pointer rather than sliding on a timeline.' },
+  { match: 'Mars-Oppostion', slug: 'mars-opposition', kind: 'HTML5 Ads',
+    title: 'Mars Opposition',
+    blurb: 'Built around the night Mars comes closest, and the telescopes that '
+      + 'make the most of it.' },
+  { match: 'ads-1', slug: 'bh-static-ads', kind: 'Static Ads',
+    title: 'B&H Static Ads',
+    blurb: 'A long run of static placements for B&H Photo Video Pro Audio, '
+      + 'where the whole argument has to land in one frame.' },
+  { match: 'ArtWolfe', slug: 'art-wolfe-gear-guide', kind: 'Print + Digital Pubs',
+    title: "Pro's Perspective: Art Wolfe",
+    blurb: 'A gear guide built around Art Wolfe\u2019s Journey Into the Wild \u2014 '
+      + 'a photographer\u2019s kit laid out so the pictures still lead.' },
+  { match: 'MixedMedia', slug: 'mixed-media', kind: 'Print + Digital Pubs',
+    title: 'Mixed Media Publications',
+    blurb: 'Publications that had to work printed and on a screen, without '
+      + 'either feeling like the leftover version of the other.' },
+  { match: 'Postcards', slug: 'print-work', kind: 'Branding',
+    title: 'Print Work',
+    blurb: 'Postcards, mailers and the rest of the printed run \u2014 the pieces '
+      + 'that arrive in a hand rather than a feed.' },
+  { match: 'frigidaire', slug: 'logo-work', kind: 'Branding',
+    title: 'Logo Animation and Creation',
+    blurb: 'Marks drawn to hold still and then taught to move, so the animated '
+      + 'cut and the printed one are plainly the same thing.' },
+  { match: 'web-1', slug: 'web-and-ux', kind: 'UX + Web Design',
+    title: 'Web Design and UX',
+    blurb: 'Responsive, interactive sites and apps \u2014 the part of the work '
+      + 'that has to keep making sense after the first impression.' },
+  { match: 'DigitalARt', slug: 'digital-art', kind: 'Digital Art',
+    title: 'Art Through the Years',
+    blurb: 'Work made for its own sake, kept because it is where most of the '
+      + 'rest of this started.' },
+  { match: 'senaltrio', slug: 'music', kind: 'Music Production',
+    title: 'Music and Sound Design',
+    blurb: 'Produced from time to time, and the reason a thing that moves on a '
+      + 'screen tends to have a rhythm to it.' },
+  { match: 'github', slug: 'code', kind: 'UX + Web Design',
+    title: 'Code and Experiments',
+    blurb: 'The pieces built rather than drawn \u2014 including this river, which '
+      + 'is one file, drawn by hand, and its own authoring tool.' },
+];
+
+/* An id carries its filename, so the work is found in it. Longest match first,
+   so a short key cannot steal a picture belonging to a longer one. */
+const WORK_BY_LEN = WORKS.slice().sort((a, b) => b.match.length - a.match.length);
+const workFor = (id) => {
+  if (!id) return null;
+  const hay = String(id).toLowerCase();
+  for (let i = 0; i < WORK_BY_LEN.length; i++) {
+    if (hay.indexOf(WORK_BY_LEN[i].match.toLowerCase()) >= 0) return WORK_BY_LEN[i];
+  }
+  return null;
+};
+const workBySlug = (slug) => WORKS.find((w) => w.slug === slug) || null;
 
 const blendBg = (a, b, t) => {
   if (!a) return b;
@@ -5092,10 +5333,18 @@ function CardRiver() {
 
       card.style.transform =
         `translate3d(-50%, -50%, 0) translateY(${y.toFixed(2)}px) ` +
-        `translateZ(${z.toFixed(2)}px) rotateX(${theta.toFixed(2)}deg)`;
+        `translateZ(${(z + 46 * hoverAmt.current[i]).toFixed(2)}px) ` +
+        `rotateX(${theta.toFixed(2)}deg)`;
+
+      /* Eased here rather than in the tick, because this already runs once a
+         frame and the number is wanted at exactly this moment. */
+      if (hoverAmt.current.length !== n) hoverAmt.current = new Float32Array(n);
+      const want = i === hoverRef.current ? 1 : 0;
+      const amt = hoverAmt.current[i] + (want - hoverAmt.current[i]) * 0.18;
+      hoverAmt.current[i] = Math.abs(amt - want) < 0.002 ? want : amt;
 
       const grazing = Math.abs(Math.sin((theta * Math.PI) / 180));
-      const dim = 1 - p.dim * (1 - c) * 0.5;
+      const dim = (1 - p.dim * (1 - c) * 0.5) * (1 + 0.22 * amt);
       // past the fold we are looking at the panel's back, which mirrors it
       // vertically -- undo that so photographs never read upside down. The
       // switch lands exactly where the panel is edge-on, so it is never seen.
@@ -5190,7 +5439,156 @@ function CardRiver() {
   /* A menu link brings one card to the front. It sets a destination rather
      than jumping, so the river turns there and the author sees which way it
      went -- and anything the viewer does next takes the wheel back. */
+  /* ---------- opening a card ---------- */
+
+  const [open, setOpen] = useState(null);   // the work being shown
+  const [zoom, setZoom] = useState(null);   // the picture in flight
+  const [shown, setShown] = useState(false);
+  const openRef = useRef(null);
+  openRef.current = open;
+
+  /* Which card the pointer is over, and how far it has leaned out to meet it.
+     The index is a ref because it changes on every mouse move and nothing
+     about it needs React; the caption is state because it is words on screen.
+     The lean is eased per card, so a pointer crossing the river leaves a
+     ripple of cards rising and settling rather than a row of jumps. */
+  const hoverRef = useRef(-1);
+  const hoverAmt = useRef(new Float32Array(0));
+  const [hoverWork, setHoverWork] = useState(null);
+
+  /* Which card is under this point. Every card is pointer-events: none, so
+     the stage can own the drag -- which means the answer has to be worked out
+     rather than asked for. The frontmost card is the biggest one on screen,
+     and an edge-on card is a sliver nobody was aiming at. */
+  const cardUnder = (x, y) => {
+    let best = -1;
+    let area = 0;
+    for (let i = 0; i < cardRefs.current.length; i++) {
+      const c = cardRefs.current[i];
+      if (!c) continue;
+      const r = c.getBoundingClientRect();
+      if (r.width < 24 || r.height < 24) continue;
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+      const a = r.width * r.height;
+      if (a > area) { area = a; best = i; }
+    }
+    return best;
+  };
+
+  /* Where the picture is going. Beside the words on a wide screen, above them
+     on a narrow one, and never wider than the column it has to sit in. */
+  const heroRect = (from) => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const pad = Math.min(72, Math.max(18, vw * 0.05));
+    const ar = Math.max(0.2, from.w / Math.max(from.h, 1));
+    if (vw >= 900) {
+      const wrapW = Math.min(1180, vw - pad * 2);
+      const colW = wrapW * 0.46;
+      let h = Math.min(vh * 0.68, colW / ar);
+      let w = h * ar;
+      if (w > colW) { w = colW; h = w / ar; }
+      return { x: (vw - wrapW) / 2, y: (vh - h) / 2, w, h };
+    }
+    let h = vh * 0.32;
+    let w = h * ar;
+    const cap = vw - pad * 2;
+    if (w > cap) { w = cap; h = w / ar; }
+    return { x: (vw - w) / 2, y: Math.max(pad, vh * 0.06), w, h };
+  };
+
+  const openCard = (i, work) => {
+    const c = cardRefs.current[i];
+    const item = deck[i];
+    if (!c || !work) return;
+    const r = c.getBoundingClientRect();
+    const from = { x: r.left, y: r.top, w: r.width, h: r.height };
+    setZoom({
+      src: item && item.kind === 'image' ? srcFor(item) : '',
+      video: item && item.kind === 'video' ? srcFor(item) : '',
+      from,
+      to: heroRect(from),
+      at: 'from',
+      i,
+    });
+    setOpen(work);
+    if (location.hash.replace(/^#/, '') !== work.slug) {
+      history.pushState(null, '', '#' + work.slug);
+    }
+  };
+
+  /* Back to where the card is now, not where it was: the river has gone on
+     turning underneath, and flying the picture home to an empty patch of
+     screen would look like a mistake. */
+  const closeCard = (push) => {
+    const z = zoomRef.current;
+    setOpen(null);
+    setShown(false);
+    if (z) {
+      const c = cardRefs.current[z.i];
+      const r = c && c.getBoundingClientRect();
+      const home = r && r.width > 8
+        ? { x: r.left, y: r.top, w: r.width, h: r.height }
+        : z.from;
+      setZoom({ ...z, from: home, at: 'home' });
+      clearTimeout(homeTimer.current);
+      homeTimer.current = setTimeout(() => setZoom(null), 820);
+    }
+    if (push && location.hash) history.pushState(null, '', location.pathname + location.search);
+  };
+
+  const zoomRef = useRef(null);
+  zoomRef.current = zoom;
+  const homeTimer = useRef(null);
+
   const goTo = (card) => { glide.current = frontAt(card, n); };
+
+  /* The picture is mounted sitting exactly on the card, and only then told
+     where it is going -- a transition needs two frames to be a transition. */
+  useEffect(() => {
+    if (!zoom || zoom.at !== 'from') return undefined;
+    const r = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setZoom((z) => (z && z.at === 'from' ? { ...z, at: 'to' } : z));
+        setShown(true);
+      });
+    });
+    return () => cancelAnimationFrame(r);
+  }, [zoom]);
+
+  /* The address is the page. Typing one in, sharing one, or pressing Back all
+     arrive here, so there is one way in rather than two that can disagree. */
+  useEffect(() => {
+    const read = () => {
+      const slug = (location.hash || '').replace(/^#/, '');
+      const want = workBySlug(slug);
+      const have = openRef.current;
+      if (want && (!have || have.slug !== want.slug)) {
+        const i = deck.findIndex((it) => {
+          const w = workFor(it && it.id);
+          return w && w.slug === want.slug;
+        });
+        if (i >= 0) openCard(i, want);
+      } else if (!want && have) {
+        closeCard(false);
+      }
+    };
+    read();
+    window.addEventListener('hashchange', read);
+    window.addEventListener('popstate', read);
+    return () => {
+      window.removeEventListener('hashchange', read);
+      window.removeEventListener('popstate', read);
+    };
+  }, [deck]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const esc = (e) => { if (e.key === 'Escape') closeCard(true); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [open, zoom]);
+
 
   /* How a wheel notch is divided between now and the glide out of it. The
      momentum decays by 0.0015 a second, so a velocity handed to it travels
@@ -5212,6 +5610,9 @@ function CardRiver() {
     drag.current.active = true;
     drag.current.lastX = e.clientX;
     drag.current.lastY = e.clientY;
+    drag.current.downX = e.clientX;
+    drag.current.downY = e.clientY;
+    drag.current.downT = performance.now();
     drag.current.vel = 0;
     worldRef.current.classList.add('dragging');
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -5226,7 +5627,21 @@ function CardRiver() {
       if (eng) eng.pointer(lx, ly, true);
       if (rip) rip.pointer(lx, ly);
     }
-    if (!drag.current.active) return;
+    if (!drag.current.active) {
+      /* Only when the river is still: a hand that is pushing the cards along
+         is not reaching for one of them, and a caption appearing under a drag
+         reads as the page arguing with you. */
+      if (openRef.current) return;
+      const i = cardUnder(e.clientX, e.clientY);
+      const w = i >= 0 ? workFor((deck[i] || {}).id) : null;
+      const at = w ? i : -1;
+      if (at !== hoverRef.current) {
+        hoverRef.current = at;
+        setHoverWork(w || null);
+        if (worldRef.current) worldRef.current.classList.toggle('canopen', at >= 0);
+      }
+      return;
+    }
     const dx = e.clientX - drag.current.lastX;
     const dy = e.clientY - drag.current.lastY;
     drag.current.lastX = e.clientX;
@@ -5241,6 +5656,24 @@ function CardRiver() {
     if (!drag.current.active) return;
     drag.current.active = false;
     worldRef.current.classList.remove('dragging');
+  };
+
+  /* A press that stayed in one place and did not last is a click on whatever
+     was under it. Both tests are needed: a slow press that never moved is
+     someone deciding, and a fast flick that moved is a scrub. */
+  const onPointerUp = (e) => {
+    const d = drag.current;
+    const moved = Math.hypot(e.clientX - (d.downX || 0), e.clientY - (d.downY || 0));
+    const held = performance.now() - (d.downT || 0);
+    endDrag();
+    if (openRef.current) return;
+    if (moved > 7 || held > 500) return;
+    if (e.target && e.target.closest && e.target.closest('.panel, .ui-toggle, .rmenu')) return;
+    const i = cardUnder(e.clientX, e.clientY);
+    if (i < 0) return;
+    const item = deck[i];
+    const work = workFor(item && item.id);
+    if (work) openCard(i, work);
   };
 
   useEffect(() => {
@@ -6171,7 +6604,7 @@ function CardRiver() {
   return (
     <div
       className={`world${dropping ? ' dropping' : ''}${intro ? ' intro' : ''}`
-                 + (revealed ? '' : ' settling')}
+                 + (revealed ? '' : ' settling') + (open ? ' opened' : '')}
       style={{
         '--d-back':  `${scene.steps.back.delay}s`,
         '--d-pics':  `${scene.steps.pics.delay}s`,
@@ -6182,7 +6615,7 @@ function CardRiver() {
       ref={worldRef}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
+      onPointerUp={onPointerUp}
       onPointerLeave={() => {
         if (flowRef.current) flowRef.current.pointer(0, 0, false);
         endDrag();
@@ -6251,6 +6684,60 @@ function CardRiver() {
           );
         })}
       </div>
+
+      {/* Out through a portal, because the world carries a perspective and a
+          roll -- and inside a transformed ancestor "fixed" quietly stops
+          meaning fixed. */}
+      {ReactDOM.createPortal(
+        <React.Fragment>
+          <div className={`page-veil${open ? ' in' : ''}`} />
+          {/* Named where the eye is not: the card is what you are looking at,
+              so the word for it sits out of the way at the foot of the
+              frame. */}
+          <div className={`hovercap${hoverWork && !open ? ' in' : ''}`}>
+            {hoverWork && (
+              <React.Fragment>
+                <span className="hovercap-kind">{hoverWork.kind}</span>
+                <span className="hovercap-title">{hoverWork.title}</span>
+                <span className="hovercap-go">Open</span>
+              </React.Fragment>
+            )}
+          </div>
+          {zoom && (
+            <div className="zoomer"
+                 style={{
+                   width: `${zoom.to.w}px`,
+                   height: `${zoom.to.h}px`,
+                   backgroundImage: zoom.src ? `url(${zoom.src})` : undefined,
+                   transform: zoom.at === 'to'
+                     ? `translate(${zoom.to.x.toFixed(1)}px, ${zoom.to.y.toFixed(1)}px)`
+                     : `translate(${zoom.from.x.toFixed(1)}px, ${zoom.from.y.toFixed(1)}px)`
+                       + ` scale(${(zoom.from.w / zoom.to.w).toFixed(4)},`
+                       + ` ${(zoom.from.h / zoom.to.h).toFixed(4)})`,
+                 }}>
+              {zoom.video && (
+                <video src={zoom.video} autoPlay muted loop playsInline />
+              )}
+            </div>
+          )}
+          {open && (
+            <div className={`page${shown ? ' in' : ''}`}>
+              <div className="page-wrap">
+                <div className="page-hole" />
+                <div className="page-text">
+                  <p className="page-kind">{open.kind}</p>
+                  <h2 className="page-title">{open.title}</h2>
+                  <p className="page-blurb">{open.blurb}</p>
+                  <button className="page-back" onClick={() => closeCard(true)}>
+                    Back to the river
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </React.Fragment>,
+        document.body,
+      )}
 
       <div className="vignette" />
 
