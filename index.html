@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=827933f3"></script>
+<script src="site-runtime.js?v=7586f90d"></script>
 </head>
 <body>
-<script>window.__build = "827933f3";</script>
+<script>window.__build = "7586f90d";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1046,9 +1046,9 @@
      cross with it. Returning them at once left the card lit underneath while
      its own picture was still in the air -- the same thing twice, in two
      places, which is what looked sloppy. */
-  .world.closing .card { transition: opacity .22s ease .36s; }
+  .world.closing .card { transition: opacity .18s ease; }
   .world.closing .head,
-  .world.closing .rmenu { transition: opacity .3s ease .34s; }
+  .world.closing .rmenu { transition: opacity .26s ease .1s; }
 
   .world.canopen { cursor: pointer; }
 
@@ -5412,10 +5412,27 @@ function CardRiver() {
       // so it reaches face-on well before the quarter turn
       const theta = 90 + phi * DEG + p.crease * Math.sin(2 * phi);
 
+      /* Out of the ring, round to face the front, and into the middle. The
+         turn takes the short way to the angle a card has when it sits at the
+         near point, which is the angle at which this rig shows a card flat. */
+      const lift = liftAmt(i);
+      let ly = y;
+      let lz = z + 46 * hoverAmt.current[i];
+      let lth = theta;
+      let lsc = 1;
+      if (lift > 0) {
+        const face = 90 + Math.round((theta - 90) / 360) * 360;
+        ly = y * (1 - lift);
+        lz = lz * (1 - lift) + ampZ * LIFT_PULL * lift;
+        lth = theta + (face - theta) * lift;
+        lsc = 1 + (LIFT_SCALE - 1) * lift;
+      }
+
       card.style.transform =
-        `translate3d(-50%, -50%, 0) translateY(${y.toFixed(2)}px) ` +
-        `translateZ(${(z + 46 * hoverAmt.current[i]).toFixed(2)}px) ` +
-        `rotateX(${theta.toFixed(2)}deg)`;
+        `translate3d(-50%, -50%, 0) translateY(${ly.toFixed(2)}px) ` +
+        `translateZ(${lz.toFixed(2)}px) ` +
+        `rotateX(${lth.toFixed(2)}deg)` +
+        (lift > 0 ? ` scale(${lsc.toFixed(4)})` : '');
 
       /* Eased here rather than in the tick, because this already runs once a
          frame and the number is wanted at exactly this moment. */
@@ -5424,12 +5441,12 @@ function CardRiver() {
       const amt = hoverAmt.current[i] + (want - hoverAmt.current[i]) * 0.18;
       hoverAmt.current[i] = Math.abs(amt - want) < 0.002 ? want : amt;
 
-      const grazing = Math.abs(Math.sin((theta * Math.PI) / 180));
-      const dim = (1 - p.dim * (1 - c) * 0.5) * (1 + 0.22 * amt);
+      const grazing = Math.abs(Math.sin((lth * Math.PI) / 180)) * (1 - lift);
+      const dim = (1 - p.dim * (1 - c) * 0.5 * (1 - lift)) * (1 + 0.22 * amt);
       // past the fold we are looking at the panel's back, which mirrors it
       // vertically -- undo that so photographs never read upside down. The
       // switch lands exactly where the panel is edge-on, so it is never seen.
-      const flip = Math.cos((theta * Math.PI) / 180) < 0 ? 'scaleY(-1)' : 'none';
+      const flip = Math.cos((lth * Math.PI) / 180) < 0 ? 'scaleY(-1)' : 'none';
 
       const art = artRefs.current[i];
       if (art) {
@@ -5547,6 +5564,27 @@ function CardRiver() {
   zoomRef.current = zoom;
   const homeTimer = useRef(null);
 
+  /* Taking a card off the ring. It is pulled out towards the viewer, turned
+     until it faces them and brought to the middle -- and only when it is flat
+     to the camera does the flat copy take over, because that is the one
+     moment the two are the same shape. Everything before this went straight
+     to the copy, which is why it read as a picture appearing rather than a
+     card being picked up. */
+  const LIFT_MS = 440;
+  const LIFT_PULL = 0.5;   // how far out of the ring, as a share of its depth
+  const DROP_MS = 480;
+  const LIFT_SCALE = 1.0;   // the pull toward the viewer does the enlarging
+  const openRun = useRef({ i: -1, from: 0, to: 0, t0: 0, dur: LIFT_MS });
+  const liftTimer = useRef(null);
+
+  const liftAmt = (i) => {
+    const r = openRun.current;
+    if (r.i !== i) return 0;
+    const p = Math.min(1, (performance.now() - r.t0) / r.dur);
+    const e = p * p * (3 - 2 * p);
+    return r.from + (r.to - r.from) * e;
+  };
+
   const hoverRef = useRef(-1);
   const hoverAmt = useRef(new Float32Array(0));
   const [hoverWork, setHoverWork] = useState(null);
@@ -5600,42 +5638,50 @@ function CardRiver() {
 
   const openCard = (i, work) => {
     const c = cardRefs.current[i];
-    const item = deck[i];
     if (!c || !work) return;
     clearTimeout(homeTimer.current);
-    const r = c.getBoundingClientRect();
-    const from = { x: r.left, y: r.top, w: r.width, h: r.height };
-    const sheet = sheetRect();
-    setZoom({
-      src: item && item.kind === 'image' ? srcFor(item) : '',
-      video: item && item.kind === 'video' ? srcFor(item) : '',
-      from,
-      sheet,
-      to: heroIn(sheet, from),
-      i,
-    });
-    /* The river turns this card to its front while you read, behind the
-       layer, and holds it there. Not for its own sake: a card caught
-       side-on is a sliver a few pixels wide, and flying a flat picture home
-       into one looks like a mistake rather than a card going back. It comes
-       home to a card facing the front instead -- and the river you return to
-       is showing the thing you just looked at. */
-    progress.current = frontAt(i, n);
+    clearTimeout(liftTimer.current);
+
+    /* The river stops where it is. The card leaves the ring on its own --
+       turning the whole river to the front instead would be the ring moving,
+       not a card being taken out of it. */
     drag.current.vel = 0;
     glide.current = null;
 
-    setPhase('from');
+    openRun.current = { i, from: liftAmt(i), to: 1, t0: performance.now(), dur: LIFT_MS };
     setOpen(work);
+    setPhase('lift');
     if (location.hash.replace(/^#/, '') !== work.slug) {
       history.pushState(null, '', '#' + work.slug);
     }
+
+    /* Once it is flat to the camera the copy takes over, measured from where
+       the card has actually got to rather than from where it began. */
+    liftTimer.current = setTimeout(() => {
+      const el = cardRefs.current[i];
+      const item = deck[i];
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const from = { x: r.left, y: r.top, w: r.width, h: r.height };
+      const sheet = sheetRect();
+      setZoom({
+        src: item && item.kind === 'image' ? srcFor(item) : '',
+        video: item && item.kind === 'video' ? srcFor(item) : '',
+        from,
+        sheet,
+        to: heroIn(sheet, from),
+        i,
+      });
+      setPhase('from');
+    }, LIFT_MS);
   };
 
-  /* Home is where the card is now, not where it was: the river has gone on
-     turning underneath, and flying the picture back to an empty patch of
-     screen would read as a mistake. */
+  /* Back the way it came: the copy returns to the card, the card takes over
+     where it is -- out in front and facing you -- and then turns and settles
+     back into its place in the ring. */
   const closeCard = (push) => {
     if (!openRef.current) return;
+    clearTimeout(liftTimer.current);
     const z = zoomRef.current;
     setPhase('home');
     if (z) {
@@ -5647,10 +5693,16 @@ function CardRiver() {
     }
     clearTimeout(homeTimer.current);
     homeTimer.current = setTimeout(() => {
-      setOpen(null);
       setZoom(null);
-      setPhase(null);
-    }, 620);
+      setPhase('drop');
+      const i = z ? z.i : openRun.current.i;
+      openRun.current = { i, from: 1, to: 0, t0: performance.now(), dur: DROP_MS };
+      homeTimer.current = setTimeout(() => {
+        openRun.current = { i: -1, from: 0, to: 0, t0: 0, dur: LIFT_MS };
+        setPhase(null);
+        setOpen(null);
+      }, DROP_MS);
+    }, 520);
     if (push && location.hash) {
       history.pushState(null, '', location.pathname + location.search);
     }
@@ -6731,8 +6783,9 @@ function CardRiver() {
     <div
       className={`world${dropping ? ' dropping' : ''}${intro ? ' intro' : ''}`
                  + (revealed ? '' : ' settling')
-                 + (open && phase !== 'home' ? ' opened' : '')
-                 + (phase === 'home' ? ' closing' : '')}
+                 + (phase === 'from' || phase === 'to' || phase === 'home'
+                    ? ' opened' : '')
+                 + (phase === 'drop' ? ' closing' : '')}
       style={{
         '--d-back':  `${scene.steps.back.delay}s`,
         '--d-pics':  `${scene.steps.pics.delay}s`,
@@ -6818,7 +6871,9 @@ function CardRiver() {
           meaning fixed. */}
       {ReactDOM.createPortal(
         <React.Fragment>
-          <div className={`sheet-veil${open && phase !== 'home' ? ' in' : ''}`}
+          <div className={'sheet-veil'
+                          + (phase === 'lift' || phase === 'from' || phase === 'to'
+                             ? ' in' : '')}
                onClick={() => closeCard(true)} />
 
           {zoom && open && (
