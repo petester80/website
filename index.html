@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=c21da175"></script>
+<script src="site-runtime.js?v=b5ee4b80"></script>
 </head>
 <body>
-<script>window.__build = "c21da175";</script>
+<script>window.__build = "b5ee4b80";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5557,7 +5557,11 @@ function CardRiver() {
           else progress.current += d * Math.min(1, dt * 4.5);
         } else {
           if (!reduce) progress.current += dt * P.current.speed * riverRun.current;
-          progress.current += drag.current.vel * dt * riverRun.current;
+          /* Not scaled by the hold. The drift is the page's own motion and
+             stops when you reach for a card; this is your hand's, and damping
+             it threw away most of every wheel notch the moment the pointer
+             was over anything. */
+          progress.current += drag.current.vel * dt;
           drag.current.vel *= Math.pow(0.0015, dt);
           if (Math.abs(drag.current.vel) < 0.001) drag.current.vel = 0;
         }
@@ -5933,6 +5937,14 @@ function CardRiver() {
       if (e.target && e.target.closest && e.target.closest('.panel, .ui-toggle')) return;
       e.preventDefault();
       glide.current = null;           // scrolling takes over from a menu jump
+      /* And from the hold: a hand on the wheel is driving the river, not
+         reaching into it. The next time the pointer actually moves, whatever
+         is under it takes hold again. */
+      if (hoverRef.current !== -1) {
+        hoverRef.current = -1;
+        setHoverWork(null);
+        if (worldRef.current) worldRef.current.classList.remove('canopen');
+      }
       // A trackpad swipe carries both axes, so it can follow the roll like a
       // drag does. A plain wheel only has deltaY, and at a quarter turn the
       // projection would cancel it to nothing -- so it keeps driving the
