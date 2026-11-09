@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=62908d70"></script>
+<script src="site-runtime.js?v=b5c4228e"></script>
 </head>
 <body>
-<script>window.__build = "62908d70";</script>
+<script>window.__build = "b5c4228e";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -932,9 +932,9 @@
     transition: opacity .5s ease;
   }
   .sheet-veil.in { opacity: 1; pointer-events: auto; cursor: pointer; }
-  /* Lifting a little later than the layer, so the river comes up out of the
-     dark instead of being whipped off it. */
-  .sheet-veil { transition: opacity .42s ease .12s; }
+  /* Out over the card's return, in over the card's lift: the same half
+     second at the same end of the move. */
+  .sheet-veil { transition: opacity .44s ease; }
   .sheet-veil.in { transition: opacity .5s ease; }
 
   /* The words live inside the layer, and only arrive once it has stopped
@@ -6914,8 +6914,13 @@ function CardRiver() {
           meaning fixed. */}
       {ReactDOM.createPortal(
         <React.Fragment>
+          {/* Dark through the travel as well, and lifting only while the card
+              turns back into the ring -- the mirror of its arriving while the
+              card comes out. Lifting it at the start of the close left the
+              whole return playing against a bright page. */}
           <div className={'sheet-veil'
-                          + (phase === 'lift' || phase === 'from' || phase === 'to'
+                          + (phase === 'lift' || phase === 'from'
+                             || phase === 'to' || phase === 'home'
                              ? ' in' : '')}
                onClick={() => closeCard(true)} />
 
