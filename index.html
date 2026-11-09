@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=7586f90d"></script>
+<script src="site-runtime.js?v=0e3a52e4"></script>
 </head>
 <body>
-<script>window.__build = "7586f90d";</script>
+<script>window.__build = "0e3a52e4";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5421,7 +5421,13 @@ function CardRiver() {
       let lth = theta;
       let lsc = 1;
       if (lift > 0) {
-        const face = 90 + Math.round((theta - 90) / 360) * 360;
+        /* Face-on is where the panel's own turn is flat to the rig: sin of
+           it is zero, which is every half turn. Aiming at 90 instead -- the
+           angle at the near point, where a card is edge-on and the sheen is
+           at its brightest -- turned the card into a sliver on its way out.
+           Nearest half turn, so the longest it ever turns is a quarter, and
+           the flip already rights the artwork on a back face. */
+        const face = Math.round(theta / 180) * 180;
         ly = y * (1 - lift);
         lz = lz * (1 - lift) + ampZ * LIFT_PULL * lift;
         lth = theta + (face - theta) * lift;
