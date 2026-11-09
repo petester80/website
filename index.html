@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=dda41542"></script>
+<script src="site-runtime.js?v=6b3edbca"></script>
 </head>
 <body>
-<script>window.__build = "dda41542";</script>
+<script>window.__build = "6b3edbca";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4459,6 +4459,8 @@ function CardRiver() {
   const drag = useRef({ active: false, lastX: 0, lastY: 0, vel: 0 });
   // where a menu link is steering the river, or null when nothing is
   const glide = useRef(null);
+  /* How much of the river is running: 1 turning, 0 held. */
+  const riverRun = useRef(1);
 
   // deck: the viewer's own cards. Empty means the sample art stands in.
   // forward declaration: the stop writer is defined further down, and the
@@ -5514,12 +5516,18 @@ function CardRiver() {
       if (frame % 15 === 0 && bpCheck.current) bpCheck.current();
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      /* Held still while a card is open, and all the way home again. The
-         river used to go on turning behind the layer, so the picture flew
-         back to where its card had been rather than where it was -- which is
-         most of why rejoining the stack looked wrong. Nothing to reconcile if
-         nothing moved. */
-      if (!drag.current.active && !openRef.current) {
+      /* Held still while a card is out of the ring, and all the way until it
+         is back in it. Stopped dead and started dead it read as a jolt at
+         both ends, so the drift is eased out and in: quicker to stop than to
+         start, because a river that takes its time halting looks like it did
+         not hear you. */
+      const wantRun = openRef.current ? 0 : 1;
+      riverRun.current += (wantRun - riverRun.current)
+        * (1 - Math.exp(-dt * (wantRun ? 2.6 : 11)));
+      if (riverRun.current < 0.0005) riverRun.current = 0;
+      if (riverRun.current > 0.9995) riverRun.current = 1;
+
+      if (!drag.current.active) {
         if (glide.current !== null) {
           // a menu link was clicked: ease the river round to that card by the
           // short way, and leave the drift alone until it arrives
@@ -5530,8 +5538,8 @@ function CardRiver() {
           if (Math.abs(d) < 0.004) { progress.current = glide.current; glide.current = null; }
           else progress.current += d * Math.min(1, dt * 4.5);
         } else {
-          if (!reduce) progress.current += dt * P.current.speed;
-          progress.current += drag.current.vel * dt;    // carry drag momentum
+          if (!reduce) progress.current += dt * P.current.speed * riverRun.current;
+          progress.current += drag.current.vel * dt * riverRun.current;
           drag.current.vel *= Math.pow(0.0015, dt);
           if (Math.abs(drag.current.vel) < 0.001) drag.current.vel = 0;
         }
