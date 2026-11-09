@@ -52,8 +52,13 @@
 
   /* An id is a filename in images/. No blob URLs, because nothing was read
      into memory -- the browser fetches each picture when the card needs it. */
+  /* A picture uploaded a moment ago is committed but not yet served: Pages
+     takes about a minute. Until then it is shown from memory, so adding one
+     does not mean staring at a broken card while a build runs. */
+  var freshById = new Map();
+
   window.__resolveAsset = function (id) {
-    return IMAGES_DIR + '/' + encodeURIComponent(id);
+    return freshById.get(id) || (IMAGES_DIR + '/' + encodeURIComponent(id));
   };
 
   var db = {
@@ -88,8 +93,144 @@
          sample river of its own for exactly this, so let it show that rather
          than nothing at all. */
     }
-    return { db: db };
+    return document.documentElement.hasAttribute('data-edit')
+      ? { db: db, assets: assets }
+      : { db: db };
   })();
+
+  /* ---------- adding pictures, with ?edit ------------------------------
+
+     Same route as publishing: the page cannot write to the server it came
+     from, so it asks GitHub to commit the file and Pages serves it a minute
+     later. Until then the card is drawn from memory.
+
+     Pictures are shrunk on the way up. The backdrop is drawn across the whole
+     frame and wants the pixels; a card is a few hundred across and does not,
+     and a phone photograph is several thousand. 2400 is the compromise: more
+     than the backdrop has had until now, far less than a modern camera makes.
+
+     JPEG unless the picture has transparency, because a cut-out with its
+     background filled in is not the same picture. */
+
+  var IMG_MAX = 2400;         // longest side, in pixels
+  var IMG_QUALITY = 0.84;
+  var UPLOAD_CAP = 8 * 1024 * 1024;
+
+  function tooLarge() {
+    var e = new Error('That file is too big to publish');
+    e.code = 'too_large';
+    return e;
+  }
+
+  /* Does any pixel let the background through? Worth the one pass: encoding a
+     cut-out as JPEG fills its transparency with black. */
+  function hasAlpha(ctx, w, h) {
+    var d = ctx.getImageData(0, 0, w, h).data;
+    for (var i = 3; i < d.length; i += 4) if (d[i] < 250) return true;
+    return false;
+  }
+
+  async function shrink(file) {
+    if (!/^image\//.test(file.type) || /svg/.test(file.type)) return file;
+    var bmp;
+    try {
+      bmp = await createImageBitmap(file);
+    } catch (e) {
+      return file;              // a format this browser will not decode
+    }
+    var scale = Math.min(1, IMG_MAX / Math.max(bmp.width, bmp.height));
+    var w = Math.max(1, Math.round(bmp.width * scale));
+    var h = Math.max(1, Math.round(bmp.height * scale));
+    var cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    var ctx = cv.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, w, h);
+    bmp.close && bmp.close();
+
+    var keepAlpha = /png|webp|gif/.test(file.type) && hasAlpha(ctx, w, h);
+    var type = keepAlpha ? 'image/png' : 'image/jpeg';
+    var out = await new Promise(function (done) {
+      cv.toBlob(done, type, keepAlpha ? undefined : IMG_QUALITY);
+    });
+    if (!out) return file;
+    // a small picture re-encoded can come out larger; keep whichever is smaller
+    return out.size < file.size ? out : file;
+  }
+
+  async function commitFile(t, path, blob, message) {
+    var repo = repoFromUrl();
+    if (!repo) throw new Error('Not a GitHub Pages URL');
+    var api = 'https://api.github.com/repos/' + repo + '/contents/' + path;
+    var head = headersFor(t);
+
+    var sha;
+    var got = await fetch(api + '?ref=HEAD', { headers: head, cache: 'no-store' });
+    if (got.status === 401) throw new Error('Token refused');
+    if (got.ok) sha = (await got.json()).sha;
+
+    var bytes = new Uint8Array(await blob.arrayBuffer());
+    var bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    var put = await fetch(api, {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, head),
+      body: JSON.stringify({ message: message, content: btoa(bin), sha: sha }),
+    });
+    if (put.status === 403) {
+      throw new Error('Token cannot write here \u2014 set Contents: read and write');
+    }
+    if (!put.ok) throw new Error(await why(put, 'GitHub said ' + put.status));
+  }
+
+  var assets = {
+    upload: async function (file) {
+      var t = await token();
+      if (!t) throw new Error('No token \u2014 press Publish to add one');
+
+      var blob = await shrink(file);
+      if (blob.size > UPLOAD_CAP) throw tooLarge();
+
+      /* The same naming as the folder on disk: a sortable prefix so two
+         pictures of the same name cannot collide, and the original name kept
+         so the folder stays readable. */
+      var base = String(file.name || 'picture').replace(/[^\w.-]+/g, '-');
+      if (blob !== file && blob.type === 'image/jpeg') base = base.replace(/\.[^.]+$/, '') + '.jpg';
+      if (blob !== file && blob.type === 'image/png') base = base.replace(/\.[^.]+$/, '') + '.png';
+      var id = Date.now().toString(36) + '-' + base;
+
+      await commitFile(t, IMAGES_DIR + '/' + id, blob, 'Add ' + id + ' from the live page');
+
+      var url = URL.createObjectURL(blob);
+      freshById.set(id, url);
+      return { id: id, url: url, sizeBytes: blob.size, contentType: blob.type };
+    },
+
+    delete: async function (id) {
+      var u = freshById.get(id);
+      if (u) { URL.revokeObjectURL(u); freshById.delete(id); }
+      var t = null;
+      try { t = localStorage.getItem(TOKEN_KEY); } catch (e) {}
+      if (!t) return { deleted: false };     // never ask for a token to tidy up
+      var repo = repoFromUrl();
+      if (!repo) return { deleted: false };
+      var api = 'https://api.github.com/repos/' + repo + '/contents/'
+        + IMAGES_DIR + '/' + encodeURIComponent(id);
+      var head = headersFor(t);
+      try {
+        var got = await fetch(api + '?ref=HEAD', { headers: head, cache: 'no-store' });
+        if (!got.ok) return { deleted: false };
+        var sha = (await got.json()).sha;
+        await fetch(api, {
+          method: 'DELETE',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, head),
+          body: JSON.stringify({ message: 'Remove ' + id + ' from the live page', sha: sha }),
+        });
+      } catch (e) { /* a picture that will not go is not worth stopping for */ }
+      return { deleted: true };
+    },
+  };
 
   /* ---------- publishing, with ?edit ----------------------------------
 
@@ -110,6 +251,25 @@
      words and settings -- not new photographs. */
 
   var TOKEN_KEY = 'card-river-publish-token';
+
+  /* Uploading needs the token as much as publishing does, and the asking for
+     it lives in the button down below. So the ask is registered rather than
+     reached for, and anything that needs a token goes through here. */
+  var askForToken = null;
+
+  async function token() {
+    var t = null;
+    try { t = localStorage.getItem(TOKEN_KEY); } catch (e) { /* private window */ }
+    if (t) return t;
+    if (!askForToken) return null;
+    t = await askForToken();
+    if (t) { try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {} }
+    return t;
+  }
+
+  function headersFor(t) {
+    return { Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json' };
+  }
 
   /* Which repository this page came out of, read off the URL rather than
      written in, so the file does not have to know whose site it is on.
@@ -262,6 +422,11 @@
         });
       });
     }
+
+    askForToken = function () {
+      note('Paste a token with Contents write');
+      return askToken();
+    };
 
     swap.addEventListener('click', async function () {
       try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* private window */ }
