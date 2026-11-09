@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=b7ed3650"></script>
+<script src="site-runtime.js?v=3d8f6438"></script>
 </head>
 <body>
-<script>window.__build = "b7ed3650";</script>
+<script>window.__build = "3d8f6438";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -891,7 +891,7 @@
      it arrives, so the card underneath takes over rather than the picture
      blinking out of a gap. The river is already fading back in by then. */
   .zoomer.going { opacity: 0; transition: transform .72s cubic-bezier(.19, 1, .22, 1),
-                                          opacity .2s ease .5s; }
+                                          opacity .22s ease .54s; }
   .zoomer video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   /* Anywhere that is not the layer is a way out of it. */
@@ -1016,6 +1016,14 @@
   .world.opened .card,
   .world.opened .head,
   .world.opened .rmenu { opacity: 0; transition: opacity .4s ease; }
+
+  /* Coming back, the cards wait until the picture is nearly home and then
+     cross with it. Returning them at once left the card lit underneath while
+     its own picture was still in the air -- the same thing twice, in two
+     places, which is what looked sloppy. */
+  .world.closing .card { transition: opacity .26s ease .5s; }
+  .world.closing .head,
+  .world.closing .rmenu { transition: opacity .3s ease .46s; }
 
   .world.canopen { cursor: pointer; }
 
@@ -5445,7 +5453,12 @@ function CardRiver() {
       if (frame % 15 === 0 && bpCheck.current) bpCheck.current();
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      if (!drag.current.active) {
+      /* Held still while a card is open, and all the way home again. The
+         river used to go on turning behind the layer, so the picture flew
+         back to where its card had been rather than where it was -- which is
+         most of why rejoining the stack looked wrong. Nothing to reconcile if
+         nothing moved. */
+      if (!drag.current.active && !openRef.current) {
         if (glide.current !== null) {
           // a menu link was clicked: ease the river round to that card by the
           // short way, and leave the drift alone until it arrives
@@ -5576,6 +5589,16 @@ function CardRiver() {
       to: heroIn(sheet, from),
       i,
     });
+    /* The river turns this card to its front while you read, behind the
+       layer, and holds it there. Not for its own sake: a card caught
+       side-on is a sliver a few pixels wide, and flying a flat picture home
+       into one looks like a mistake rather than a card going back. It comes
+       home to a card facing the front instead -- and the river you return to
+       is showing the thing you just looked at. */
+    progress.current = frontAt(i, n);
+    drag.current.vel = 0;
+    glide.current = null;
+
     setPhase('from');
     setOpen(work);
     if (location.hash.replace(/^#/, '') !== work.slug) {
@@ -6683,7 +6706,8 @@ function CardRiver() {
     <div
       className={`world${dropping ? ' dropping' : ''}${intro ? ' intro' : ''}`
                  + (revealed ? '' : ' settling')
-                 + (open && phase !== 'home' ? ' opened' : '')}
+                 + (open && phase !== 'home' ? ' opened' : '')
+                 + (phase === 'home' ? ' closing' : '')}
       style={{
         '--d-back':  `${scene.steps.back.delay}s`,
         '--d-pics':  `${scene.steps.pics.delay}s`,
