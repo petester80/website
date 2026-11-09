@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=0f35cf1d"></script>
+<script src="site-runtime.js?v=b9e6373f"></script>
 </head>
 <body>
-<script>window.__build = "0f35cf1d";</script>
+<script>window.__build = "b9e6373f";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -899,6 +899,10 @@
                 opacity .13s ease .35s;
   }
 
+  /* Landed. It gives out over exactly as long as the card beneath it takes
+     to come up, in the same place, so one becomes the other. */
+  .zoomer.landing { opacity: 0; transition: opacity .2s ease; }
+
   /* The layer dissolves where it stands, a beat ahead of the picture, so the
      two read as two gestures rather than one shape collapsing. */
   /* Opening, the layer fades up as it grows; closing, it fades out as it
@@ -1043,15 +1047,18 @@
 
   /* The river stands down rather than disappearing: the field goes on running
      behind all of this, because it is the one thing here that never stops. */
+  /* Important, because the ring's own standing-back is written straight onto
+     each card as it is drawn, and an inline style outranks a rule. Without it
+     the ring stayed at a quarter lit behind the layer instead of going. */
   .world.opened .card,
   .world.opened .head,
-  .world.opened .rmenu { opacity: 0; transition: opacity .4s ease; }
+  .world.opened .rmenu { opacity: 0 !important; transition: opacity .4s ease; }
 
   /* Coming back, the cards wait until the picture is nearly home and then
      cross with it. Returning them at once left the card lit underneath while
      its own picture was still in the air -- the same thing twice, in two
      places, which is what looked sloppy. */
-  .world.closing .card { transition: opacity .18s ease; }
+  .world.closing .card { transition: opacity .2s ease; }
   .world.closing .head,
   .world.closing .rmenu { transition: opacity .26s ease .1s; }
 
@@ -5741,8 +5748,12 @@ function CardRiver() {
     }
     clearTimeout(homeTimer.current);
     homeTimer.current = setTimeout(() => {
-      setZoom(null);
       setPhase('drop');
+      /* The picture stays a moment longer and crosses with the card rather
+         than being taken away in front of it. Removed on the instant, it left
+         a sixth of a second with nothing solid in its place while the card
+         faded up -- which is the last of the stops. */
+      setTimeout(() => setZoom(null), 260);
       const i = z ? z.i : openRun.current.i;
       openRun.current = { i, from: 1, to: 0, t0: performance.now(), dur: DROP_MS };
       homeTimer.current = setTimeout(() => {
@@ -6992,7 +7003,8 @@ function CardRiver() {
           )}
 
           {zoom && (
-            <div className={`zoomer${phase === 'home' ? ' going' : ''}`}
+            <div className={`zoomer${phase === 'home' ? ' going' : ''}`
+                            + (phase === 'drop' ? ' landing' : '')}
                  style={{
                    width: `${zoom.to.w}px`,
                    height: `${zoom.to.h}px`,
