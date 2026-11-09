@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=3d8f6438"></script>
+<script src="site-runtime.js?v=827933f3"></script>
 </head>
 <body>
-<script>window.__build = "3d8f6438";</script>
+<script>window.__build = "827933f3";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -887,11 +887,32 @@
                 opacity .24s ease;
     will-change: transform;
   }
-  /* Going home, it stays solid for most of the way and then gives out just as
-     it arrives, so the card underneath takes over rather than the picture
-     blinking out of a gap. The river is already fading back in by then. */
-  .zoomer.going { opacity: 0; transition: transform .72s cubic-bezier(.19, 1, .22, 1),
-                                          opacity .22s ease .54s; }
+  /* Going home. Quicker than it came and on a firmer curve: an exit that
+     takes as long as an entrance feels like the page is reluctant. It stays
+     solid for most of the way and gives out just as it arrives, so the card
+     underneath takes over rather than the picture blinking out of a gap. */
+  .zoomer.going {
+    opacity: 0;
+    transition: transform .52s cubic-bezier(.4, 0, .2, 1),
+                opacity .16s ease .4s;
+  }
+
+  /* The layer dissolves where it stands, a beat ahead of the picture, so the
+     two read as two gestures rather than one shape collapsing. */
+  .sheet.going {
+    opacity: 0;
+    transition: transform .34s cubic-bezier(.4, 0, 1, 1),
+                opacity .26s ease;
+  }
+  /* And the words go first, downward, so the layer is already empty by the
+     time it folds. */
+  .sheet.going .sheet-text,
+  .sheet.going .sheet-x,
+  .sheet.going .sheet-back {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .13s ease, transform .2s cubic-bezier(.4, 0, 1, 1);
+  }
   .zoomer video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   /* Anywhere that is not the layer is a way out of it. */
@@ -906,6 +927,10 @@
     transition: opacity .5s ease;
   }
   .sheet-veil.in { opacity: 1; pointer-events: auto; cursor: pointer; }
+  /* Lifting a little later than the layer, so the river comes up out of the
+     dark instead of being whipped off it. */
+  .sheet-veil { transition: opacity .42s ease .12s; }
+  .sheet-veil.in { transition: opacity .5s ease; }
 
   /* The words live inside the layer, and only arrive once it has stopped
      growing -- text drawn at half scale and stretched up looks wrong in a way
@@ -1021,9 +1046,9 @@
      cross with it. Returning them at once left the card lit underneath while
      its own picture was still in the air -- the same thing twice, in two
      places, which is what looked sloppy. */
-  .world.closing .card { transition: opacity .26s ease .5s; }
+  .world.closing .card { transition: opacity .22s ease .36s; }
   .world.closing .head,
-  .world.closing .rmenu { transition: opacity .3s ease .46s; }
+  .world.closing .rmenu { transition: opacity .3s ease .34s; }
 
   .world.canopen { cursor: pointer; }
 
@@ -5625,7 +5650,7 @@ function CardRiver() {
       setOpen(null);
       setZoom(null);
       setPhase(null);
-    }, 760);
+    }, 620);
     if (push && location.hash) {
       history.pushState(null, '', location.pathname + location.search);
     }
@@ -6797,15 +6822,21 @@ function CardRiver() {
                onClick={() => closeCard(true)} />
 
           {zoom && open && (
-            <div className={`sheet${phase === 'to' ? ' in' : ''}`}
+            <div className={`sheet${phase === 'to' ? ' in' : ''}`
+                            + (phase === 'home' ? ' going' : '')}
                  style={{
+                   /* Leaving, it goes where it stands rather than retracing
+                      the way it came. Played backwards, an entrance is only
+                      ever an entrance in reverse -- and the picture already
+                      has the journey to make. */
                    width: `${zoom.sheet.w}px`,
                    height: `${zoom.sheet.h}px`,
-                   transform: phase === 'to'
-                     ? `translate(${zoom.sheet.x.toFixed(1)}px, ${zoom.sheet.y.toFixed(1)}px)`
-                     : `translate(${zoom.from.x.toFixed(1)}px, ${zoom.from.y.toFixed(1)}px)`
+                   transform: phase === 'from'
+                     ? `translate(${zoom.from.x.toFixed(1)}px, ${zoom.from.y.toFixed(1)}px)`
                        + ` scale(${(zoom.from.w / zoom.sheet.w).toFixed(4)},`
-                       + ` ${(zoom.from.h / zoom.sheet.h).toFixed(4)})`,
+                       + ` ${(zoom.from.h / zoom.sheet.h).toFixed(4)})`
+                     : `translate(${zoom.sheet.x.toFixed(1)}px, ${zoom.sheet.y.toFixed(1)}px)`
+                       + (phase === 'home' ? ' scale(.965)' : ''),
                  }}>
               <button className="sheet-x" onClick={() => closeCard(true)}
                       aria-label="Close">{'\u00d7'}</button>
