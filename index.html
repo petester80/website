@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=b9e6373f"></script>
+<script src="site-runtime.js?v=c21da175"></script>
 </head>
 <body>
-<script>window.__build = "b9e6373f";</script>
+<script>window.__build = "c21da175";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5533,9 +5533,15 @@ function CardRiver() {
          both ends, so the drift is eased out and in: quicker to stop than to
          start, because a river that takes its time halting looks like it did
          not hear you. */
-      const wantRun = openRef.current ? 0 : 1;
+      /* A card under the pointer holds the river too. Reaching for something
+         that is still moving is the pointer chasing it, and a card that stops
+         dead under the hand is the page flinching -- so it leans into the
+         stop rather than hitting it. Opening halts harder, because by then
+         the choice is made. */
+      const held = openRef.current ? 2 : (hoverRef.current >= 0 ? 1 : 0);
+      const wantRun = held ? 0 : 1;
       riverRun.current += (wantRun - riverRun.current)
-        * (1 - Math.exp(-dt * (wantRun ? 2.6 : 11)));
+        * (1 - Math.exp(-dt * (wantRun ? 2.6 : (held === 2 ? 11 : 4.2))));
       if (riverRun.current < 0.0005) riverRun.current = 0;
       if (riverRun.current > 0.9995) riverRun.current = 1;
 
@@ -6862,6 +6868,12 @@ function CardRiver() {
       onPointerUp={onPointerUp}
       onPointerLeave={() => {
         if (flowRef.current) flowRef.current.pointer(0, 0, false);
+        /* or the river stays held by a card the pointer left behind */
+        if (hoverRef.current !== -1) {
+          hoverRef.current = -1;
+          setHoverWork(null);
+          if (worldRef.current) worldRef.current.classList.remove('canopen');
+        }
         endDrag();
       }}
       onPointerCancel={endDrag}
