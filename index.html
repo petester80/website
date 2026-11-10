@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=1b8eb135"></script>
+<script src="site-runtime.js?v=5cb5d33b"></script>
 </head>
 <body>
-<script>window.__build = "1b8eb135";</script>
+<script>window.__build = "5cb5d33b";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1818,6 +1818,22 @@ const workFor = (id) => {
   return null;
 };
 const workBySlug = (slug) => WORKS.find((w) => w.slug === slug) || null;
+
+/* ---------- how a wheel drives the river ------------------------------
+
+   Geared to the wheel rather than to the layout: a notch is a notch, however
+   far apart the cards are set. It used to divide by the river's own slot
+   spacing, so the wider the river the less a scroll did.
+
+   A notch lands partly at once and partly as momentum, because a wheel
+   arrives in lumps at uneven times and the whole of one landing together
+   made the step between frames swing from nothing to half a card. The
+   momentum decays by 0.0015 a second and so travels 1/ln(1/0.0015) of
+   itself, about 0.154 -- which is what the 6.5 undoes, so the split changes
+   when the movement arrives and never how far it goes. */
+const WHEEL_PER_CARD = 420;   // px of wheel that carry the river one card
+const WHEEL_NOW = 0.45;       // of a notch, landing immediately
+const WHEEL_CARRY = 6.5;      // and the rest, handed to the momentum
 
 const blendBg = (a, b, t) => {
   if (!a) return b;
@@ -5970,7 +5986,7 @@ function CardRiver() {
       const ax = riverAxis();
       const sideways = Math.abs(dX) > Math.abs(dY) * 1.5;
       const along = sideways ? dX * ax.x + dY * ax.y : dY;
-      const d = along / (dims.current.slot * 2.4 || 1);
+      const d = along / WHEEL_PER_CARD;
       /* Part of a notch lands now and the rest is handed to the momentum a
          drag already uses, because a wheel arrives in lumps at uneven times:
          moving the river the whole way on each one made the step between
