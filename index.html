@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=e0918cb9"></script>
+<script src="site-runtime.js?v=1b8eb135"></script>
 </head>
 <body>
-<script>window.__build = "e0918cb9";</script>
+<script>window.__build = "1b8eb135";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5956,11 +5956,20 @@ function CardRiver() {
          the projection threw the downward part away and kept the drift.
          Scrolling did nothing, on exactly the rolled rig this page uses, and
          no test sending a clean deltaY could ever see it. */
+      /* A wheel does not have to report in pixels. Firefox and a good many
+         drivers report in lines, where a notch is 3 rather than 120, and one
+         browser in page units. Taken raw, a line-mode notch moved the river
+         by six thousandths of a card -- which is not slow, it is nothing, and
+         every wheel this was tested with happened to speak pixels. */
+      const unit = e.deltaMode === 1 ? 16
+        : e.deltaMode === 2 ? (worldRef.current ? worldRef.current.clientHeight : 800)
+        : 1;
+      const dX = e.deltaX * unit;
+      const dY = e.deltaY * unit;
+
       const ax = riverAxis();
-      const sideways = Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5;
-      const along = sideways
-        ? e.deltaX * ax.x + e.deltaY * ax.y
-        : e.deltaY;
+      const sideways = Math.abs(dX) > Math.abs(dY) * 1.5;
+      const along = sideways ? dX * ax.x + dY * ax.y : dY;
       const d = along / (dims.current.slot * 2.4 || 1);
       /* Part of a notch lands now and the rest is handed to the momentum a
          drag already uses, because a wheel arrives in lumps at uneven times:
