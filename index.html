@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=b5ee4b80"></script>
+<script src="site-runtime.js?v=e0918cb9"></script>
 </head>
 <body>
-<script>window.__build = "b5ee4b80";</script>
+<script>window.__build = "e0918cb9";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5945,12 +5945,20 @@ function CardRiver() {
         setHoverWork(null);
         if (worldRef.current) worldRef.current.classList.remove('canopen');
       }
-      // A trackpad swipe carries both axes, so it can follow the roll like a
-      // drag does. A plain wheel only has deltaY, and at a quarter turn the
-      // projection would cancel it to nothing -- so it keeps driving the
-      // river exactly as it does unrolled.
+      /* A sideways swipe follows the roll like a drag does. A downward one
+         always drives the river, whatever the roll, because that is what a
+         hand expects of a wheel.
+
+         The test used to be whether there was any sideways movement at all,
+         over half a unit. Trackpads never send a perfectly straight swipe and
+         nor do many mice, so a scroll down with the least drift took the
+         projection -- and at a quarter turn the river axis is sideways, so
+         the projection threw the downward part away and kept the drift.
+         Scrolling did nothing, on exactly the rolled rig this page uses, and
+         no test sending a clean deltaY could ever see it. */
       const ax = riverAxis();
-      const along = Math.abs(e.deltaX) > 0.5
+      const sideways = Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5;
+      const along = sideways
         ? e.deltaX * ax.x + e.deltaY * ax.y
         : e.deltaY;
       const d = along / (dims.current.slot * 2.4 || 1);
