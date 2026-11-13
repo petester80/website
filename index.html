@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=c94ca76c"></script>
+<script src="site-runtime.js?v=b2db88fb"></script>
 </head>
 <body>
-<script>window.__build = "c94ca76c";</script>
+<script>window.__build = "b2db88fb";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,6 +66,13 @@
        local host draws, for one. The editor's own chrome is INSIDE the world,
        so it is lifted above 80 by hand instead; see .ui-toggle and .panel. */
     isolation: isolate;
+    /* Type on this page is sized in vmin, which is the window -- so inside a
+       frame it would size itself to the desk rather than to the phone being
+       looked at, and the preview would lie. Making the stage a container lets
+       the words measure against the stage instead, which is the window
+       anyway when there is no frame. */
+    container-type: size;
+    container-name: stage;
     height: 100%;
     width: 100%;
     overflow: hidden;
@@ -346,6 +353,15 @@
   .f-display { font-family: var(--display); letter-spacing: -.015em; }
   .f-mono    { font-family: var(--mono);    letter-spacing: .02em; }
   .headline .caps { text-transform: uppercase; letter-spacing: .09em; }
+
+  /* The stage, boxed and set down in the middle of a dark surround, so what
+     is inside it is all there is to judge. */
+  html.framed body { display: grid; place-items: center; background: #05070d; }
+  html.framed .world {
+    flex: none;
+    border-radius: 7px;
+    box-shadow: 0 0 0 1px rgba(232, 236, 246, .2), 0 36px 110px rgba(0, 0, 0, .7);
+  }
 
   /* ---------- the catch, and what is behind it ---------- */
 
@@ -5752,6 +5768,23 @@ function CardRiver() {
   const [hoverWork, setHoverWork] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  /* A frame of an exact size to work inside. The sizes this page saves are
+     keyed by width alone, which cannot tell a phone held sideways -- wide and
+     very short -- from a tall window of the same width. Until they can, the
+     least that is owed is a way to see it: the stage is boxed to a given
+     width and height and centred, and everything inside it measures from the
+     stage rather than the window, so it behaves as if that were the screen. */
+  const [frame, setFrame] = useState(null);
+  const [frameW, setFrameW] = useState('844');
+  const [frameH, setFrameH] = useState('390');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (frame) root.classList.add('framed');
+    else root.classList.remove('framed');
+    return () => root.classList.remove('framed');
+  }, [frame]);
+
   /* Every card is pointer-events: none so the stage can own the drag, which
      means which card you are pointing at has to be worked out rather than
      asked for. The frontmost card is the biggest one on screen, and an
@@ -7005,7 +7038,7 @@ function CardRiver() {
       el.style.setProperty('--fit',
         wide > room ? Math.max(0.4, room / wide).toFixed(3) : '1');
     });
-  }, [heads, winW, params, scene.wordScale]);
+  }, [heads, winW, params, scene.wordScale, frame]);
 
   return (
     <div
@@ -7020,6 +7053,7 @@ function CardRiver() {
         '--d-cards': `${scene.steps.cards.delay}s`,
         '--d-words': `${scene.steps.words.delay}s`,
         '--d-menu':  `${scene.steps.menu.delay}s`,
+        ...(frame ? { width: `${frame.w}px`, height: `${frame.h}px` } : null),
       }}
       ref={worldRef}
       onPointerDown={onPointerDown}
@@ -7249,7 +7283,7 @@ function CardRiver() {
                    }}>
                 <span className={`hl f-${h.font}${h.caps ? ' caps' : ''}`}
                       style={{
-                        fontSize: `calc(${(h.size * k).toFixed(2)}vmin * var(--fit, 1))`,
+                        fontSize: `calc(${(h.size * k).toFixed(2)}cqmin * var(--fit, 1))`,
                         color: h.color,
                         fontWeight: h.font === 'sora' ? h.weight : undefined,
                       }}>
@@ -7258,7 +7292,7 @@ function CardRiver() {
                 {h.sub && (
                   <span className={`sub f-${h.subFont}`}
                         style={{
-                          fontSize: `calc(${(h.subSize * k).toFixed(2)}vmin * var(--fit, 1))`,
+                          fontSize: `calc(${(h.subSize * k).toFixed(2)}cqmin * var(--fit, 1))`,
                           color: h.subColor,
                         }}>
                     {h.sub}
@@ -8055,6 +8089,40 @@ function CardRiver() {
             if (v > 0) { addStop(v); setNewW(''); }
           }}>+ Add that width</button>
         </div>
+        <div className="deckbar">
+          <input type="number" min="200" max="4000" step="1" value={frameW}
+                 placeholder="width" style={{ width: '5.5em', flex: 'none' }}
+                 onChange={(e) => setFrameW(e.target.value)} />
+          <span className="hint" style={{ margin: 0 }}>{'\u00d7'}</span>
+          <input type="number" min="200" max="4000" step="1" value={frameH}
+                 placeholder="height" style={{ width: '5.5em', flex: 'none' }}
+                 onChange={(e) => setFrameH(e.target.value)} />
+          <button className="chip" onClick={() => {
+            const w = parseInt(frameW, 10);
+            const h = parseInt(frameH, 10);
+            if (w > 0 && h > 0) setFrame({ w, h });
+          }}>Work in that frame</button>
+          {frame && (
+            <button className="chip" onClick={() => setFrame(null)}>Back to the window</button>
+          )}
+        </div>
+        <div className="deckbar">
+          {[['iPhone upright', 390, 844], ['iPhone sideways', 844, 390],
+            ['iPad upright', 834, 1112], ['iPad sideways', 1112, 834]].map(([label, w, h]) => (
+            <button key={label} className="chip"
+                    aria-pressed={!!frame && frame.w === w && frame.h === h}
+                    onClick={() => { setFrameW(String(w)); setFrameH(String(h)); setFrame({ w, h }); }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="hint">
+          {frame
+            ? `Working in a ${frame.w} by ${frame.h} frame. Sizes are still saved `
+              + `by width, so this one shares the ${frame.w}px size with any window that wide.`
+            : 'A frame lets you see a phone held sideways without resizing anything.'}
+        </p>
+
         <label className="toggle">
           <input type="checkbox" checked={fluid}
                  onChange={(e) => {
