@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=5cb5d33b"></script>
+<script src="site-runtime.js?v=70eef6c9"></script>
 </head>
 <body>
-<script>window.__build = "5cb5d33b";</script>
+<script>window.__build = "70eef6c9";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -343,6 +343,84 @@
   .f-display { font-family: var(--display); letter-spacing: -.015em; }
   .f-mono    { font-family: var(--mono);    letter-spacing: .02em; }
   .headline .caps { text-transform: uppercase; letter-spacing: .09em; }
+
+  /* ---------- the catch, and what is behind it ---------- */
+
+  .burger {
+    position: absolute;
+    z-index: 70;
+    top: calc(18px + env(safe-area-inset-top, 0px));
+    right: max(20px, env(safe-area-inset-right, 0px));
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    pointer-events: auto;
+    display: grid;
+    align-content: center;
+    justify-items: end;
+    gap: 5px;
+  }
+  .burger span {
+    display: block;
+    width: 22px;
+    height: 1.5px;
+    background: currentColor;
+    opacity: .66;
+    transition: transform .34s cubic-bezier(.19, 1, .22, 1),
+                opacity .2s ease, width .34s cubic-bezier(.19, 1, .22, 1);
+  }
+  /* the middle rule is short, so the catch reads as a catch and not a stack */
+  .burger span:nth-child(2) { width: 14px; }
+  .burger:hover span { opacity: 1; }
+  .burger:hover span:nth-child(2) { width: 22px; }
+  .burger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .burger.open span:nth-child(2) { opacity: 0; width: 22px; }
+  .burger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); width: 22px; }
+
+  .drawer {
+    position: absolute;
+    z-index: 69;
+    top: calc(68px + env(safe-area-inset-top, 0px));
+    right: max(20px, env(safe-area-inset-right, 0px));
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .drawer.open { opacity: 1; pointer-events: auto; transition: opacity .3s ease; }
+  .drawer button {
+    pointer-events: auto;
+    border: 0;
+    background: transparent;
+    padding: 7px 0;
+    font-family: inherit;
+    font-size: clamp(15px, 2.1vmin, 22px);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: inherit;
+    opacity: 0;
+    transform: translateY(-10px);
+    cursor: pointer;
+    transition: opacity .26s ease, transform .4s cubic-bezier(.19, 1, .22, 1);
+  }
+  /* They arrive one after another rather than all at once, which is the
+     difference between a list appearing and a list being offered. */
+  .drawer.open button { opacity: .72; transform: none; }
+  .drawer.open button:nth-child(1) { transition-delay: .02s; }
+  .drawer.open button:nth-child(2) { transition-delay: .06s; }
+  .drawer.open button:nth-child(3) { transition-delay: .10s; }
+  .drawer.open button:nth-child(4) { transition-delay: .14s; }
+  .drawer.open button:nth-child(5) { transition-delay: .18s; }
+  .drawer.open button:nth-child(6) { transition-delay: .22s; }
+  .drawer button:hover { opacity: 1; }
+
+  .world.opened .burger,
+  .world.opened .drawer { opacity: 0; pointer-events: none; transition: opacity .4s ease; }
 
   .rmenu {
     position: absolute;
@@ -5669,6 +5747,7 @@ function CardRiver() {
   const hoverRef = useRef(-1);
   const hoverAmt = useRef(new Float32Array(0));
   const [hoverWork, setHoverWork] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   /* Every card is pointer-events: none so the stage can own the drag, which
      means which card you are pointing at has to be worked out rather than
@@ -5837,6 +5916,16 @@ function CardRiver() {
     };
   }, [deck]);
 
+  /* Shut by Escape, and by a card being opened -- a menu left hanging over
+     the layer would be the page talking over itself. */
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    if (open) { setMenuOpen(false); return undefined; }
+    const esc = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [menuOpen, open]);
+
   useEffect(() => {
     if (!open) return undefined;
     const esc = (e) => { if (e.key === 'Escape') closeCard(true); };
@@ -5862,7 +5951,8 @@ function CardRiver() {
      landed on the button, the release landed on the stage, and the click in
      between was retargeted to the one ancestor they shared: no close button
      anywhere was ever clickable, nor the veil behind it. */
-  const OVER_STAGE = '.panel, .ui-toggle, .rmenu, .sheet, .sheet-veil, .zoomer, .hovercap';
+  const OVER_STAGE = '.panel, .ui-toggle, .rmenu, .burger, .drawer,'
+    + ' .sheet, .sheet-veil, .zoomer, .hovercap';
 
   const onPointerDown = (e) => {
     if (e.target.closest(OVER_STAGE)) return;
@@ -7158,14 +7248,31 @@ function CardRiver() {
                         + (scene.steps.menu.in ? '' : ' noin')}
              style={{ color: menu.color }}>
           <span className="brand">{menu.brand}</span>
-          <nav>
-            {menu.items.map((it, i) => (
-              <button key={it.key} type="button" onClick={() => goTo(it.card)}>
+        </div>
+      )}
+
+      {/* The links live behind a catch now rather than across the top: the
+          river is the page, and a row of words over it was competing with the
+          thing they are there to get you into. */}
+      {menu.on && menu.items.length > 0 && (
+        <React.Fragment>
+          <button className={`burger${menuOpen ? ' open' : ''}`}
+                  style={{ color: menu.color }}
+                  aria-expanded={menuOpen}
+                  aria-label={menuOpen ? 'Close menu' : 'Menu'}
+                  onClick={() => setMenuOpen((o) => !o)}>
+            <span /><span /><span />
+          </button>
+          <nav className={`drawer f-${menu.font}${menuOpen ? ' open' : ''}`}
+               style={{ color: menu.color }}>
+            {menu.items.map((it) => (
+              <button key={it.key} type="button"
+                      onClick={() => { setMenuOpen(false); goTo(it.card); }}>
                 {it.label || `Card ${it.card + 1}`}
               </button>
             ))}
           </nav>
-        </div>
+        </React.Fragment>
       )}
 
       <button className="ui-toggle" onClick={() => setShowUI((s) => !s)}
