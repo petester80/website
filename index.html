@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=b2db88fb"></script>
+<script src="site-runtime.js?v=c217016b"></script>
 </head>
 <body>
-<script>window.__build = "b2db88fb";</script>
+<script>window.__build = "c217016b";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -324,6 +324,7 @@
   .words {
     position: absolute;
     inset: 0;
+    transition: transform .4s cubic-bezier(.19, 1, .22, 1);
     z-index: 50;
     overflow: hidden;
     pointer-events: none;
@@ -353,6 +354,11 @@
   .f-display { font-family: var(--display); letter-spacing: -.015em; }
   .f-mono    { font-family: var(--mono);    letter-spacing: .02em; }
   .headline .caps { text-transform: uppercase; letter-spacing: .09em; }
+
+  /* Sideways on a phone: the words take the left of the frame and the river
+     the right, each with the whole height to itself. */
+  /* The words are placed from the left in the markup when split, so nothing
+     is translated here -- doing both moved them twice. */
 
   /* The stage, boxed and set down in the middle of a dark surround, so what
      is inside it is all there is to judge. */
@@ -2053,6 +2059,13 @@ const resolveAt = (stops, w, fluid) => {
 const nearestStop = (stops, w) => (stops.length
   ? stops.reduce((best, s) => (Math.abs(s.w - w) < Math.abs(best.w - w) ? s : best))
   : null);
+
+/* How far each half moves out of the middle when a frame is wide and short,
+   as a share of the frame's width. The river goes right because that is the
+   hand that reaches for it; the words go left because that is where reading
+   starts. */
+const SPLIT_RIVER = 17;
+const SPLIT_WORDS = -26;
 
 const TAU = Math.PI * 2;
 const DEG = 180 / Math.PI;
@@ -4584,6 +4597,8 @@ function CardRiver() {
   const drag = useRef({ active: false, lastX: 0, lastY: 0, vel: 0 });
   // where a menu link is steering the river, or null when nothing is
   const glide = useRef(null);
+  const splitRef = useRef(false);
+  const [splitOn, setSplitOn] = useState(false);
   /* How much of the river is running: 1 turning, 0 held. */
   const riverRun = useRef(1);
 
@@ -5458,12 +5473,40 @@ function CardRiver() {
       slot: frameH * p.amp / 3,   // drag sensitivity only
     };
 
+    /* A phone held sideways is a frame with no height to speak of. Stacked
+       down the middle the river and the words are on top of each other and
+       there is room for neither, so the frame is split: the river takes the
+       right of it, the words the left, and both have the whole height.
+
+       Only a phone-shaped landscape frame qualifies -- twice as wide as it is
+       tall and under 500 deep. A wide desktop window is nowhere near that
+       and is left alone. */
+    /* The frame on screen, not the composition box: frameW and frameH are
+       the 4:5 box everything is laid out in, and their ratio is 0.8 whatever
+       the window does. */
+    const split = w / Math.max(h, 1) >= 1.9 && h <= 500;
+    /* Through state, not through classList: React owns this element's
+       className and rewrites it on every render, so a class set by hand here
+       survived only until the next one -- the river moved across and the
+       words stayed where they were. */
+    if (splitRef.current !== split) {
+      splitRef.current = split;
+      setSplitOn(split);
+    }
+
     el.style.perspective = `${perspPx}px`;
     // the vanishing point travels with the rig, so moving it reads as the same
     // composition relocated rather than the same scene viewed off-axis
     el.style.perspectiveOrigin =
-      `${(50 + p.offX * 100).toFixed(2)}% ${(50 + p.offY * 100).toFixed(2)}%`;
-    el.style.setProperty('--tx', `${(p.offX * 100).toFixed(3)}%`);
+      `${(50 + (split ? SPLIT_RIVER : p.offX * 100)).toFixed(2)}%`
+      + ` ${(50 + (split ? 0 : p.offY * 100)).toFixed(2)}%`;
+    /* The shift rides on top of whatever this size was set to, so the Offset
+       X you have chosen still moves it from there. */
+    /* Set, not added. The offsets on this size were composed for a tall
+       frame, and carrying them into a split one pushed the river off the
+       edge. Sideways is its own composition. */
+    el.style.setProperty('--tx',
+      `${(split ? SPLIT_RIVER : p.offX * 100).toFixed(3)}%`);
     el.style.setProperty('--ty', `${(p.offY * 100).toFixed(3)}%`);
     el.style.setProperty('--roll', `${p.roll}deg`);
     el.style.setProperty('--yaw', `${p.yaw}deg`);
@@ -7046,7 +7089,8 @@ function CardRiver() {
                  + (revealed ? '' : ' settling')
                  + (phase === 'from' || phase === 'to' || phase === 'home'
                     ? ' opened' : '')
-                 + (phase === 'drop' ? ' closing' : '')}
+                 + (phase === 'drop' ? ' closing' : '')
+                 + (splitOn ? ' split' : '')}
       style={{
         '--d-back':  `${scene.steps.back.delay}s`,
         '--d-pics':  `${scene.steps.pics.delay}s`,
@@ -7276,8 +7320,11 @@ function CardRiver() {
                    key={h.key}
                    ref={(el) => (headElRefs.current[i] = el)}
                    style={{
-                     left: `${50 + h.x}%`,
-                     top: `${50 + h.y}%`,
+                     /* Sideways the words take the left of the frame on
+                        their own terms; the placement set for a tall frame
+                        would carry them off the edge. */
+                     left: splitOn ? `${50 + SPLIT_WORDS}%` : `${50 + h.x}%`,
+                     top: splitOn ? '50%' : `${50 + h.y}%`,
                      textAlign: h.align,
                      display: h.show ? undefined : 'none',
                    }}>
