@@ -15,10 +15,10 @@
   html:not([data-edit]) .ui-toggle,
   html:not([data-edit]) .panel { display: none !important; }
 </style>
-<script src="site-runtime.js?v=4492acef"></script>
+<script src="site-runtime.js?v=c94ca76c"></script>
 </head>
 <body>
-<script>window.__build = "4492acef";</script>
+<script>window.__build = "c94ca76c";</script>
 <title>Card River</title>
 
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -330,8 +330,11 @@
     gap: .35em;
     margin: 0;
     width: max-content;
-    max-width: 86%;
-    white-space: pre-wrap;          /* a typed line break is a line break */
+    /* `pre` keeps a line break you typed and refuses to make one you did not.
+       A headline that wraps is a different headline -- on a phone it was
+       breaking mid-sentence and taking the sub-line down with it. What stops
+       it running off the frame instead is --fit, measured below. */
+    white-space: pre;
     transform-origin: 50% 50%;
     opacity: 0;
     will-change: transform, opacity;
@@ -6983,6 +6986,27 @@ function CardRiver() {
     </div>
   ) : null));
 
+  /* How much a headline has to give to stay on one line. Measured rather
+     than guessed, because it depends on the words, the face and the frame --
+     and only when one of those changes, never in the frame loop, since
+     asking an element its width makes the page lay itself out again. */
+  useLayoutEffect(() => {
+    const stage = worldRef.current;
+    if (!stage) return;
+    const room = stage.clientWidth * 0.88;
+    headElRefs.current.forEach((el) => {
+      if (!el) return;
+      el.style.setProperty('--fit', '1');
+      const line = el.querySelector('.hl');
+      if (!line) return;
+      const wide = line.scrollWidth;
+      /* Not below two fifths: past that it is not a headline any more, and
+         the honest answer is fewer words. */
+      el.style.setProperty('--fit',
+        wide > room ? Math.max(0.4, room / wide).toFixed(3) : '1');
+    });
+  }, [heads, winW, params, scene.wordScale]);
+
   return (
     <div
       className={`world${dropping ? ' dropping' : ''}${intro ? ' intro' : ''}`
@@ -7225,7 +7249,7 @@ function CardRiver() {
                    }}>
                 <span className={`hl f-${h.font}${h.caps ? ' caps' : ''}`}
                       style={{
-                        fontSize: `${(h.size * k).toFixed(2)}vmin`,
+                        fontSize: `calc(${(h.size * k).toFixed(2)}vmin * var(--fit, 1))`,
                         color: h.color,
                         fontWeight: h.font === 'sora' ? h.weight : undefined,
                       }}>
@@ -7233,7 +7257,10 @@ function CardRiver() {
                 </span>
                 {h.sub && (
                   <span className={`sub f-${h.subFont}`}
-                        style={{ fontSize: `${(h.subSize * k).toFixed(2)}vmin`, color: h.subColor }}>
+                        style={{
+                          fontSize: `calc(${(h.subSize * k).toFixed(2)}vmin * var(--fit, 1))`,
+                          color: h.subColor,
+                        }}>
                     {h.sub}
                   </span>
                 )}
